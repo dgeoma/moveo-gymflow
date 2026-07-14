@@ -1998,15 +1998,61 @@ function finishPay(pid,cid,method){
 }
 
 /* ═══════════ SHOP / POS ═══════════ */
+function shopList(){
+  SHOP.forEach((i,ix)=>{if(i.ord==null)i.ord=ix})
+  const q=(window.SHOP_Q||'').toLowerCase().trim()
+  let l=SHOP.filter(i=>!q||i.name.toLowerCase().includes(q)||i.cat.toLowerCase().includes(q))
+  const srt=window.SHOP_SORT||'custom'
+  if(srt==='name')l=[...l].sort((a,b)=>a.name.localeCompare(b.name))
+  else if(srt==='price')l=[...l].sort((a,b)=>a.price-b.price)
+  else if(srt==='priceD')l=[...l].sort((a,b)=>b.price-a.price)
+  else l=[...l].sort((a,b)=>a.ord-b.ord)
+  return l}
+function moveProd(id,dir){
+  const l=[...SHOP].sort((a,b)=>a.ord-b.ord)
+  const i=l.findIndex(x=>x.id===id), j=i+dir
+  if(j<0||j>=l.length)return
+  const t=l[i].ord;l[i].ord=l[j].ord;l[j].ord=t
+  saveState();buildShop()
+}
 function buildShop(){
   const total=CART.reduce((s,i)=>s+i.price*i.qty,0)
+  const view=window.SHOP_VIEW||'grid', srt=window.SHOP_SORT||'custom'
+  const canOrd=srt==='custom'&&ROLE!=='client'
+  const list=shopList()
+  const ordBtns=i=>canOrd?`<span style="display:inline-flex;gap:3px" onclick="event.stopPropagation()">
+    <button class="btn btn-outline btn-sm" style="padding:2px 7px" onclick="moveProd('${i.id}',-1)">↑</button>
+    <button class="btn btn-outline btn-sm" style="padding:2px 7px" onclick="moveProd('${i.id}',1)">↓</button></span>`:''
+  const gridHtml=`<div class="shop-grid">
+  ${list.map(i=>`<div class="shop-item" onclick="addCart('${i.id}')">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <img src="${i.img||''}" alt="" style="width:52px;height:52px;border-radius:12px;object-fit:cover;margin-bottom:8px;${i.img?'':'display:none'}">${ordBtns(i)}</div>
+    <div class="iname">${esc(i.name)}</div><div class="iprice">€${i.price.toFixed(2)}</div><div class="icat">${i.cat}</div></div>`).join('')||'<div style="color:var(--ink3);font-size:13px;grid-column:1/-1">Nessun articolo trovato.</div>'}
+  </div>`
+  const listHtml=`<div class="tbl-wrap"><div class="tbl-scroll"><table><tbody>
+  ${list.map(i=>`<tr style="cursor:pointer" onclick="addCart('${i.id}')">
+    <td style="width:44px"><img src="${i.img||''}" alt="" style="width:34px;height:34px;border-radius:8px;object-fit:cover;display:block;${i.img?'':'visibility:hidden'}"></td>
+    <td><strong>${esc(i.name)}</strong></td>
+    <td style="color:var(--ink3);font-size:12px">${i.cat}</td>
+    <td style="font-weight:700;color:var(--accent);white-space:nowrap">€${i.price.toFixed(2)}</td>
+    <td style="text-align:right;white-space:nowrap" onclick="event.stopPropagation()">${ordBtns(i)}
+      <button class="btn btn-accent btn-sm" onclick="addCart('${i.id}')">+ Aggiungi</button></td>
+  </tr>`).join('')||'<tr><td style="color:var(--ink3)">Nessun articolo trovato.</td></tr>'}
+  </tbody></table></div></div>`
   C().innerHTML=`
   <div class="sec-head"><h2>Shop / Bar</h2><div style="display:flex;gap:8px;align-items:center">${CART.length?`<span class="badge">${CART.length} prodotti</span>`:''}${ROLE!=='client'?`<button class="btn btn-outline btn-sm" onclick="openProdManager()">⚙ Gestisci prodotti</button>`:''}</div></div>
-  <div class="shop-grid">
-  ${SHOP.map(i=>`<div class="shop-item" onclick="addCart('${i.id}')">
-    <img src="${i.img||''}" alt="" style="width:52px;height:52px;border-radius:12px;object-fit:cover;margin-bottom:8px;${i.img?'':'display:none'}">
-    <div class="iname">${esc(i.name)}</div><div class="iprice">€${i.price.toFixed(2)}</div><div class="icat">${i.cat}</div></div>`).join('')}
-  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+    <input class="combo-in" id="shopQ" style="max-width:220px" placeholder="🔍 Cerca articolo…" value="${esc(window.SHOP_Q||'')}" oninput="window.SHOP_Q=this.value;buildShop()">
+    <select class="selin" onchange="window.SHOP_SORT=this.value;buildShop()">
+      <option value="custom" ${srt==='custom'?'selected':''}>Ordine personalizzato</option>
+      <option value="name" ${srt==='name'?'selected':''}>Nome A–Z</option>
+      <option value="price" ${srt==='price'?'selected':''}>Prezzo ↑</option>
+      <option value="priceD" ${srt==='priceD'?'selected':''}>Prezzo ↓</option></select>
+    <div style="display:flex;gap:2px;margin-left:auto">
+      <button class="btn ${view==='grid'?'btn-accent':'btn-outline'} btn-sm" title="Griglia" onclick="window.SHOP_VIEW='grid';buildShop()">▦</button>
+      <button class="btn ${view==='list'?'btn-accent':'btn-outline'} btn-sm" title="Elenco" onclick="window.SHOP_VIEW='list';buildShop()">☰</button></div>
+    ${canOrd?'<span style="font-size:11px;color:var(--ink3);width:100%">Usa ↑↓ sugli articoli per riordinarli — l’ordine viene salvato.</span>':''}</div>
+  ${view==='list'?listHtml:gridHtml}
   ${CART.length?`<div class="cart-panel"><div style="font-size:13px;font-weight:600;margin-bottom:10px">Carrello</div>
     ${CART.map(i=>`<div class="cart-row"><span style="flex:1">${esc(i.name)}</span><span style="color:var(--ink3)">×${i.qty}</span>
       <span style="font-weight:600">€${(i.price*i.qty).toFixed(2)}</span>
@@ -2017,6 +2063,7 @@ function buildShop(){
         <select class="selin" id="pos-m"><option>contanti</option><option>POS</option></select>
         <button class="btn btn-outline" onclick="CART=[];buildShop()">Svuota</button>
         <button class="btn btn-accent" onclick="checkoutShop()">Incassa</button></div></div></div>`:''}`
+  if(window.SHOP_Q){const si=document.getElementById('shopQ');if(si){si.focus();si.setSelectionRange(si.value.length,si.value.length)}}
 }
 function addCart(id){const i=SHOP.find(x=>x.id===id),ex=CART.find(x=>x.id===id);if(ex)ex.qty++;else CART.push({...i,qty:1});buildShop()}
 function rmCart(id){CART=CART.filter(x=>x.id!==id);buildShop()}
