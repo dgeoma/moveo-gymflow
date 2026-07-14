@@ -241,6 +241,10 @@ canvas{width:100%;height:120px;display:block}
 .as-foot{padding:14px 16px;border-top:1px solid var(--border);background:var(--card);width:100%}
 .as-rest{position:fixed;left:16px;right:16px;bottom:78px;max-width:648px;margin:0 auto;background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow);z-index:151}
 .stava{display:inline-flex;border-radius:50%;overflow:hidden;vertical-align:middle;background:var(--ad2);align-items:center;justify-content:center;flex-shrink:0}
+.feat{list-style:none;margin:0;padding:0}
+.feat li{position:relative;padding:4px 0 4px 22px;font-size:12.5px;color:var(--ink2);line-height:1.45}
+.feat li::before{content:'✓';position:absolute;left:2px;color:var(--accent);font-weight:800}
+.feat li b{color:var(--ink)}
 /* checkbox scontrino grande */
 .bigchk{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:13px 14px;margin-bottom:12px;cursor:pointer;font-size:14.5px;font-weight:600}
 .bigchk input{width:24px;height:24px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
@@ -289,8 +293,8 @@ canvas{width:100%;height:120px;display:block}
 /* watermark + stamp + gate + login */
 .wm{position:fixed;inset:0;pointer-events:none;z-index:40;opacity:.05;
  background-image:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='260'%20height='140'%3E%3Ctext%20x='10'%20y='72'%20fill='%238FFF00'%20font-family='sans-serif'%20font-size='12'%20transform='rotate(-22%20130%2072)'%3EMoveo%20%C2%B7%20MVP%20riservato%3C/text%3E%3C/svg%3E")}
-.stamp{position:fixed;bottom:8px;right:10px;z-index:50;font-size:10px;color:var(--ink3);background:rgba(8,8,8,.7);border:1px solid var(--border);border-radius:20px;padding:3px 10px;pointer-events:none}
-.gate{position:fixed;inset:0;z-index:200;background:radial-gradient(1200px 600px at 50% -10%,rgba(143,255,0,.07),transparent),#070707;display:flex;align-items:center;justify-content:center;overflow-y:auto}
+.stamp{position:fixed;bottom:8px;right:10px;z-index:50;font-size:10px;color:var(--ink3);background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;pointer-events:none;opacity:.92}
+.gate{position:fixed;inset:0;z-index:200;background:radial-gradient(1200px 600px at 50% -10%,var(--ad),transparent),var(--bg);display:flex;align-items:center;justify-content:center;overflow-y:auto}
 .gate.hide{display:none}
 .gate-box{width:360px;max-width:92%;text-align:center;padding:20px 0}
 .gate-box .gl{font-size:26px;font-weight:800;color:var(--accent);letter-spacing:-.5px}
@@ -376,6 +380,7 @@ canvas{width:100%;height:120px;display:block}
 <div id="printArea"></div>
 <div class="overlay" id="overlay" onclick="closeModal(event)"><div class="modal" id="modalBox"></div></div>
 <div class="gate" id="gate">
+  <button class="btn btn-outline btn-sm" id="themeBtnGate" title="Tema chiaro/scuro" style="position:absolute;top:14px;right:14px" onclick="toggleTheme()">☀️</button>
   <div class="gate-box" id="gateBox"></div>
 </div>
 <script>
@@ -635,11 +640,11 @@ const NAV_ITEMS={
   mymis:{ico:'📊',label:'I miei progressi'}, mytok:{ico:'🪙',label:'I miei gettoni'},
   dash:{ico:'🏠',label:'Dashboard'}, mybookings:{ico:'📋',label:'Le mie prenotazioni'},
   nutrition:{ico:'🥗',label:'Alimentazione'}, workout:{ico:'🏋️',label:'Allenamento'},
-  panoramica:{ico:'📈',label:'Panoramica'}, recoggi:{ico:'🗓️',label:'Oggi'},
+  panoramica:{ico:'📈',label:'Panoramica'}, recap:{ico:'✨',label:'Funzionalità'}, recoggi:{ico:'🗓️',label:'Oggi'},
   impostazioni:{ico:'⚙️',label:'Impostazioni'},
 }
 const ROLE_NAV={
-  admin:['panoramica','cal','clienti','staff','servizi','misurazioni','gettoni','shop','pagamenti','messaggi','equipment','gcal','impostazioni'],
+  admin:['panoramica','recap','cal','clienti','staff','servizi','misurazioni','gettoni','shop','pagamenti','messaggi','equipment','gcal','impostazioni'],
   reception:['recoggi','cal','clienti','gettoni','shop','pagamenti','messaggi','impostazioni'],
   trainer:['mycal','myclienti','misurazioni','messaggi','impostazioni'],
   client:['dash','mybookings','mymis','nutrition','workout','mytok','messaggi','impostazioni'],
@@ -871,7 +876,7 @@ function stfSeries(st){const seed=st.id.split('').reduce((a,c)=>a+c.charCodeAt(0
   return Array.from({length:6},(_,i)=>i===5?SESSIONS.filter(e=>e.staff===st.id).length:Math.max(0,base+((seed>>(i+1))%5)-2))}
 function stfTopSvcs(st){const m={};SESSIONS.filter(e=>e.staff===st.id).forEach(e=>{const sv=svcOf(e.svc);if(sv)m[sv.name]=(m[sv.name]||0)+1})
   return Object.entries(m).map(([l,v])=>({l,v})).sort((a,b)=>b.v-a.v)}
-function applyTheme(){const t=localStorage.getItem('gf_theme')||'dark';document.body.classList.toggle('light',t==='light');const b=document.getElementById('themeBtn');if(b)b.textContent=t==='light'?'🌙':'☀️'}
+function applyTheme(){const t=localStorage.getItem('gf_theme')||'dark';document.body.classList.toggle('light',t==='light');['themeBtn','themeBtnGate'].forEach(id=>{const b=document.getElementById(id);if(b)b.textContent=t==='light'?'🌙':'☀️'})}
 function toggleTheme(){const t=(localStorage.getItem('gf_theme')||'dark')==='dark'?'light':'dark';try{localStorage.setItem('gf_theme',t)}catch(e){};applyTheme();reRender();toast(t==='light'?'Tema chiaro attivo':'Tema scuro attivo')}
 function nowStr(){const d=new Date();return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
 function audit(a){AUDIT.unshift({t:nowStr(),u:CURRENT_USER?CURRENT_USER.name:'—',a});saveState()}
@@ -973,6 +978,7 @@ function renderLogin(){
     <div class="gerr" id="loginErr"></div>
     <button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:6px" onclick="doLogin()">Accedi</button>
     <div style="font-size:11px;color:var(--ink3);margin-top:10px;cursor:pointer" onclick="toast('Ti abbiamo inviato un link di reimpostazione via email (simulato).')">Password dimenticata?</div>
+    <div style="font-size:11px;color:var(--ink3);margin-top:6px;cursor:pointer" onclick="lockDemo()">🔒 Torna alla schermata di blocco</div>
     <div class="gf">Demo: password unica <b>${DEMO_PWD}</b> per tutti i profili.<br>In produzione: credenziali individuali, hash lato server, 2FA opzionale.</div>`
 }
 function doLogin(){
@@ -994,6 +1000,12 @@ function startSession(u,fresh){
   document.getElementById('roleBar').style.display=u.role==='admin'?'block':'none'
   if(fresh){u.last='oggi '+nowStr().split(' ')[1];audit('Login riuscito');toast(`Bentornato, ${u.name.split(' ')[0]}!`)}
   buildNav()
+}
+function lockDemo(){
+  try{sessionStorage.removeItem('gf_ok');localStorage.removeItem('gf_ok');sessionStorage.removeItem('gf_user')}catch(e){}
+  CURRENT_USER=null;if(typeof closeDrops==='function')closeDrops()
+  document.getElementById('gate').classList.remove('hide')
+  renderGateCode()
 }
 function logout(){
   audit('Logout')
@@ -1042,6 +1054,7 @@ function toggleUmenu(e){e.stopPropagation()
   el.innerHTML=`<div class="uh"><b>${esc(CURRENT_USER.name)}</b><small>${ROLE_LBL[ROLE]} · ${esc(CURRENT_USER.email)}</small></div>
     <div class="ui" onclick="closeDrops();go('impostazioni')">⚙️ Impostazioni</div>
     <div class="ui" onclick="closeDrops();setTab='profilo';go('impostazioni')">🔑 Cambia password</div>
+    <div class="ui" onclick="lockDemo()">🔒 Blocca demo (schermata iniziale)</div>
     <div class="ui" style="color:var(--danger)" onclick="logout()">↩︎ Esci</div>`
   el.classList.add('open')
 }
@@ -2754,6 +2767,70 @@ function finishWorkout(){const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT),log=trai
   if(!log.done){log.done=true;c.workouts=(c.workouts||0)+1;c.streak=c.streak||0}
   audit(`${c.name} ha completato l'allenamento di ${curDay()}`);saveState();closeAssist();toast('Allenamento completato! 💪','ok')}
 
+/* ═══════════ FUNZIONALITÀ — recap user-friendly per Emanuele ═══════════ */
+function buildRecap(){
+  const S=(ico,title,items,extra)=>`<div class="panel"><h3>${ico} ${title}</h3>
+    <ul class="feat">${items.map(i=>`<li>${i}</li>`).join('')}</ul>${extra||''}</div>`
+  C().innerHTML=`
+  <div class="sec-head"><h2>✨ Cosa sa fare GymFlow oggi</h2><span class="pill pill-accent">demo MVP</span></div>
+  <div style="font-size:13px;color:var(--ink2);margin-bottom:16px">Tutto quello che vedi qui sotto è <b>già funzionante in questa demo</b>: cliccabile e provabile con i dati di esempio.</div>
+  <div class="grid2">
+  ${S('📅','Prenotazioni & Calendario',[
+    'Calendario giornaliero per tutto lo staff, a colpi di 30 minuti',
+    'Prenotazione in 2 click, spostamento e cancellazione',
+    '<b>Motore anti-conflitti</b>: mai doppie prenotazioni (trainer, cliente o attrezzatura come l’InBody)',
+    'Classi con <b>posti reali</b> e lista d’attesa con promozione automatica',
+    'Navigazione per giorno e per settimana, filtri per servizio, trainer ordinabili',
+    'Blocchi personali del trainer (non prenotabile)'])}
+  ${S('📱','App del cliente',[
+    'Prenota da solo con i gettoni — senza passare dalla reception',
+    'Dashboard: prossima sessione, risultati raggiunti, diario pasti e acqua',
+    '<b>Diario alimentare</b>: colazione/pranzo/cena con «fatto · salta · extra» + pianificazione della settimana',
+    'Allenamento a checklist + <b>Assistente</b> con cronometro, serie e timer di recupero',
+    'Progressi con grafici, obiettivi e date reali',
+    'Acquisto gettoni con carta (prezzi IVA inclusa)',
+    'Google Calendar: evidenzia o nasconde gli orari in cui il cliente è impegnato'])}
+  ${S('👥','Clienti (CRM)',[
+    'Anagrafica completa e modificabile, ricerca istantanea',
+    'Filtri per stato e trainer, <b>colonne personalizzabili</b>, ordinamento su ogni colonna',
+    'Menu rapido ⋯: apri, prenota, messaggia, elimina',
+    '<b>Azioni in blocco</b> (sospendi/attiva/elimina) registrate e <b>ripristinabili</b>',
+    'Obiettivo peso e «quanto manca» a colpo d’occhio',
+    'Cartella clinica riservata ai professionisti sanitari (GDPR)'])}
+  ${S('🪙','Gettoni',[
+    'Si pagano alla prenotazione — niente crediti fantasma',
+    'Accrediti e rimborsi <b>solo dall’amministrazione</b>, con motivo obbligatorio',
+    '<b>Log completo</b>: per ogni gettone, chi e che cosa lo ha mosso',
+    'Filtri per periodo (oggi / 7 giorni / mese / sempre)',
+    'Vendita pacchetti con checkout e ricevuta',
+    'Monte gettoni non usati = debito, sempre visibile in Panoramica'])}
+  ${S('🏋️','Staff & Servizi',[
+    'Pagina staff con sessioni, saturazione, clienti seguiti e grafico ultime 6 settimane',
+    'Filtri per ruolo, servizio e periodo · foto profilo per ogni membro',
+    'Ruoli da elenco controllato (+ crea nuovo ruolo al volo)',
+    'Servizi 1:1, <b>1:2 di coppia</b>, small group e open class',
+    'Classifica dei servizi più usati, con gettoni spesi'])}
+  ${S('☕','Bar / Shop',[
+    'Cassa veloce: vista griglia o elenco, ricerca, ordinamento anche personalizzato',
+    'Foto per ogni prodotto + gestione listino (crea/modifica/elimina)',
+    'Incasso con <b>conferma scontrino</b> obbligatoria',
+    'Prima nota di giornata e chiusura cassa'])}
+  ${S('💳','Pagamenti & Fiscale',[
+    'Registro incassi con metodo (contanti/POS/bonifico)',
+    'IVA 22% e <b>esenzione art.10</b> per il sanitario',
+    'Numerazione ricevute progressiva + ristampa scontrino',
+    'Export CSV per contabile e commercialista',
+    'Crediti aperti con solleciti'])}
+  ${S('🔐','Sicurezza & Amministrazione',[
+    'Accesso con profili personali e password',
+    '<b>Revoca accessi in 1 click</b> (prova: c’è un utente disattivato)',
+    'Audit log: ogni azione su soldi, dati e accessi è tracciata',
+    'Backup e ripristino completi + Reset demo',
+    'Tema chiaro/scuro · funziona su PC, tablet e telefono'])}
+  </div>
+  <div class="panel" style="margin-top:14px;border-left:3px solid var(--accent)"><h3>🗺️ In roadmap (dopo l’ok al progetto)</h3>
+    <ul class="feat"><li>Notifiche WhatsApp reali (promemoria, conferme, win-back)</li><li>Fatturazione elettronica SDI e corrispettivi</li><li>Pagamenti online reali (POS/Stripe)</li><li>Import clienti da TeamSystem / Technogym</li><li>Status & Gamification clienti (livelli, punti, vantaggi)</li></ul></div>`
+}
 /* ═══════════ PANORAMICA (Super Admin) — KPI derivati dai dati ═══════════ */
 function buildPanoramica(){
   const rev=REV6[REV6.length-1].v, prevRev=REV6[REV6.length-2].v
@@ -3026,7 +3103,7 @@ function restoreBackup(inp){
 /* ═══════════ MODAL + VIEWS + INIT ═══════════ */
 function showModal(html){document.getElementById('modalBox').innerHTML=html;document.getElementById('overlay').classList.add('open')}
 function closeModal(e){if(e&&e.target&&e.target!==document.getElementById('overlay'))return;document.getElementById('overlay').classList.remove('open')}
-const VIEWS={cal:buildCal,mycal:buildMyCal,clienti:buildClienti,myclienti:buildMyClienti,staff:buildStaff,servizi:buildServizi,misurazioni:buildMis,gettoni:buildGettoni,shop:buildShop,pagamenti:buildPagamenti,messaggi:buildMsgs,equipment:buildEquip,gcal:buildGcal,booking:openBookingModal,mymis:buildMyMis,mytok:buildMyTok,dash:buildDash,mybookings:buildMyBookings,nutrition:buildNutrition,workout:buildWorkout,panoramica:buildPanoramica,recoggi:buildRecOggi,impostazioni:buildImpostazioni}
+const VIEWS={cal:buildCal,mycal:buildMyCal,clienti:buildClienti,myclienti:buildMyClienti,staff:buildStaff,servizi:buildServizi,misurazioni:buildMis,gettoni:buildGettoni,shop:buildShop,pagamenti:buildPagamenti,messaggi:buildMsgs,equipment:buildEquip,gcal:buildGcal,booking:openBookingModal,mymis:buildMyMis,mytok:buildMyTok,dash:buildDash,mybookings:buildMyBookings,nutrition:buildNutrition,workout:buildWorkout,panoramica:buildPanoramica,recap:buildRecap,recoggi:buildRecOggi,impostazioni:buildImpostazioni}
 initGate()
 applyTheme()
 </script>
