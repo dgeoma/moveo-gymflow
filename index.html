@@ -655,6 +655,25 @@ const fmt=h=>`${Math.floor(h)}:${h%1?(Math.round(h%1*60)+'').padStart(2,'0'):'00
 function esc(s){return (s==null?'':''+s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(msg,type){const t=document.createElement('div');t.className='toast'+(type?' '+type:'');t.textContent=msg;document.getElementById('toasts').appendChild(t);setTimeout(()=>t.remove(),3400)}
 function todayISO(){return new Date().toISOString().slice(0,10)}
+/* ordinamento generico tabelle: click intestazione = asc/desc */
+window.TSORT={}
+function setSort(v,k,fn){const st=window.TSORT[v]||{};if(st.k===k)st.asc=!st.asc;else{st.k=k;st.asc=true}
+  window.TSORT[v]=st;if(window[fn])window[fn]()}
+function ths(v,k,l,fn){const st=window.TSORT[v]||{};const ar=st.k===k?(st.asc?' ↑':' ↓'):''
+  return `<th onclick="setSort('${v}','${k}','${fn}')" style="cursor:pointer">${l}${ar}</th>`}
+function tsorted(v,list){const st=window.TSORT[v];if(!st||!st.k)return list
+  return [...list].sort((a,b)=>{const va=a[st.k],vb=b[st.k]
+    if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1
+    const r=(typeof va==='number'&&typeof vb==='number')?va-vb:String(va).localeCompare(String(vb),'it',{numeric:true})
+    return st.asc?r:-r})}
+function ledgerAge(l){const d=(l.date||'').toLowerCase()
+  if(d==='oggi'||d==='adesso')return 0
+  const m=d.match(/(\d+)\s+(\w+)/);if(!m)return 999
+  const MO={gen:0,feb:1,mar:2,apr:3,mag:4,giu:5,lug:6,ago:7,set:8,ott:9,nov:10,dic:11}
+  const mon=MO[m[2].slice(0,3)];if(mon==null)return 999
+  const now=new Date();let diff=Math.round((now-new Date(now.getFullYear(),mon,+m[1]))/86400000)
+  if(diff<-180)diff+=365;return Math.max(0,diff)}
+function tokPerDays(){return {oggi:0,sett:7,mese:31,all:9999}[window.TOK_PER||'all']}
 /* combo: tendina + ricerca scrivendo (nome e cognome) */
 function comboHtml(id,ph,pre){
   return `<div class="combo" id="${id}-box"><input type="hidden" id="${id}" value="${pre?pre.id:''}">
@@ -875,7 +894,7 @@ function creditTok(c,n,desc){c.tok+=n;ledger(c,'accredito',n,desc)}
 function nextReceipt(){let mx=100;PAYMENTS.forEach(p=>{const m=/R-2026-(\d+)/.exec(p.num||'');if(m)mx=Math.max(mx,+m[1])});return 'R-2026-'+String(mx+1).padStart(4,'0')}
 function addPayment(client,desc,line,amount,method,vat,status){const num=nextReceipt();PAYMENTS.unshift({id:'p'+Date.now(),num,date:todayISO(),client,desc,line,amount:+(+amount).toFixed(2),method,vat,status:status||'pagato'});audit(`Incasso ${num} — ${client} €${(+amount).toFixed(2)} (${method})`);return num}
 /* persistenza demo: localStorage (backup/restore reali in Impostazioni → Sistema) */
-const STATE_V='gf_v95'
+const STATE_V='gf_v97'
 function replaceArr(dst,src){dst.length=0;src.forEach(x=>dst.push(x))}
 function saveState(){try{localStorage.setItem(STATE_V,JSON.stringify({CLIENTS,SESSIONS,BOOKINGS,LEDGER,PAYMENTS,NOTIFS,AUDIT,USERS,STAFF,SVCS,CENTER,AUTOM,MSGS,WORKOUTS,NUTRI,EQUIPMENT,CLINICAL,SHOP,BULK_LOG}))}catch(e){}}
 function loadState(){try{const s=JSON.parse(localStorage.getItem(STATE_V)||'null');if(!s)return
@@ -1354,7 +1373,8 @@ function renderClients(){
   if(window.CRM_FSTAT)list=list.filter(c=>c.status===window.CRM_FSTAT)
   if(window.CRM_FTR)list=list.filter(c=>c.trainer===window.CRM_FTR)
   const cols=crmCols()
-  list.forEach(c=>{const wl=c.weight&&c.weight.length?c.weight[c.weight.length-1]:null
+  list.forEach(c=>{c.trName=staffOf(c.trainer)?staffOf(c.trainer).name:''
+    const wl=c.weight&&c.weight.length?c.weight[c.weight.length-1]:null
     c.toGoal=(c.goalWeight&&wl!=null)?+(((c.goalWeight<c.weight[0])?(wl-c.goalWeight):(c.goalWeight-wl))).toFixed(1):null})
   if(sortKey) list.sort((a,b)=>{const v=sortAsc?1:-1;const av=a[sortKey],bv=b[sortKey];if(av==null)return 1;if(bv==null)return -1;return av>bv?v:-v})
   const canAdd=ROLE==='admin'||ROLE==='reception'
@@ -1375,7 +1395,8 @@ function renderClients(){
     <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="CRM_SEL.clear();renderClients()">Annulla selezione</button></div>`:''}
   <div class="tbl-scroll"><table><thead><tr>
     <th style="width:34px"><input type="checkbox" ${list.length&&list.every(c=>CRM_SEL.has(c.id))?'checked':''} onchange="crmToggleAll(${JSON.stringify(list.map(c=>c.id)).replace(/"/g,'&quot;')},this.checked)" style="width:16px;height:16px;accent-color:var(--accent)"></th>
-    ${cols.map(k=>`<th onclick="doSort('${k==='trainer'?'trainer':k}')">${CRM_COLDEFS.find(d=>d[0]===k)[1]}</th>`).join('')}<th></th>
+    ${cols.map(k=>{const sk=k==='trainer'?'trName':k;const ar=sortKey===sk?(sortAsc?' ↑':' ↓'):''
+      return `<th onclick="doSort('${sk}')" style="cursor:pointer">${CRM_COLDEFS.find(d=>d[0]===k)[1]}${ar}</th>`}).join('')}<th></th>
   </tr></thead><tbody>
   ${list.map(c=>{const tr=staffOf(c.trainer)
     const pc=c.status==='attivo'?'pill-ok':c.status==='sospeso'?'pill-warn':'pill-danger'
@@ -1572,7 +1593,11 @@ function buildStaff(){
     const series=stfSeries(st)
     const sess=per==='week'?wk:per==='4w'?series.slice(2).reduce((a,b)=>a+b,0):allSess(st)
     return {sess,hrs:hrs.toFixed(0),avH,occ:avH?Math.round(hrs/avH*100):0,cl:clientiSeguiti(st)}}
-  list=[...list].sort((a,b)=>statsOf(b).sess-statsOf(a).sess)
+  const stfVal=(st,k)=>{const s2=statsOf(st);return {name:st.name,sess:s2.sess,avH:s2.avH,occ:s2.occ,cl:s2.cl}[k]}
+  const stS=window.TSORT.stf
+  if(stS&&stS.k)list=[...list].sort((a,b)=>{const va=stfVal(a,stS.k),vb=stfVal(b,stS.k)
+    const r=(typeof va==='number')?va-vb:String(va).localeCompare(String(vb),'it');return stS.asc?r:-r})
+  else list=[...list].sort((a,b)=>statsOf(b).sess-statsOf(a).sess)
   const perLbl={week:'questa settimana','4w':'ultime 4 settimane',all:'da sempre'}[per]
   C().innerHTML=`
   <div class="sec-head"><h2>Staff (${list.length}${list.length!==STAFF.length?' di '+STAFF.length:''})</h2>${ROLE==='admin'?`<button class="btn btn-accent" onclick="openStaffEdit()">+ Aggiungi</button>`:''}</div>
@@ -1582,7 +1607,7 @@ function buildStaff(){
     <select class="selin" onchange="window.STF_PER=this.value;buildStaff()"><option value="week" ${per==='week'?'selected':''}>Questa settimana</option><option value="4w" ${per==='4w'?'selected':''}>Ultime 4 settimane</option><option value="all" ${per==='all'?'selected':''}>Da sempre</option></select>
   </div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
-    <th>Nome</th><th>Ruoli</th><th>Sessioni <small style="text-transform:none">(${perLbl})</small></th><th>Ore disp./sett</th><th>Saturazione</th><th>Clienti seguiti</th><th></th>
+    ${ths('stf','name','Nome','buildStaff')}<th>Ruoli</th>${ths('stf','sess',`Sessioni <small style="text-transform:none">(${perLbl})</small>`,'buildStaff')}${ths('stf','avH','Ore disp./sett','buildStaff')}${ths('stf','occ','Saturazione','buildStaff')}${ths('stf','cl','Clienti seguiti','buildStaff')}<th></th>
   </tr></thead><tbody>
   ${list.map(st=>{const k=statsOf(st)
     return `<tr>
@@ -1697,15 +1722,21 @@ function buildServizi(){
   const TL={ONE_TO_ONE:'1:1',ONE_TO_TWO:'1:2',ONE_TO_MANY:'1:N',MANY_TO_MANY:'N:N'}
   const usage=id=>SESSIONS.filter(e=>e.svc===id).length
   const tokSp=id=>SESSIONS.filter(e=>e.svc===id).reduce((t,e)=>t+((e.roster?e.roster.length:1)*(svcOf(id).tok)),0)
-  const ranked=[...SVCS].sort((a,b)=>usage(b.id)-usage(a.id))
-  const mxU=usage(ranked[0].id)||1
+  const topRank=[...SVCS].sort((a,b)=>usage(b.id)-usage(a.id))
+  const svVal=(sv,k)=>({name:sv.name,tl:TL[sv.type],use:usage(sv.id),tokS:tokSp(sv.id),dur:sv.dur,tok:sv.tok,maxP:sv.max,vat:sv.vat||'22',req:(sv.req||[]).join(', ')})[k]
+  const svS=window.TSORT.svc
+  let ranked=[...SVCS]
+  if(svS&&svS.k)ranked.sort((a,b)=>{const va=svVal(a,svS.k),vb=svVal(b,svS.k)
+    const r=(typeof va==='number')?va-vb:String(va).localeCompare(String(vb),'it',{numeric:true});return svS.asc?r:-r})
+  else ranked.sort((a,b)=>usage(b.id)-usage(a.id))
+  const mxU=usage(topRank[0].id)||1
   C().innerHTML=`
   <div class="sec-head"><h2>Servizi (${SVCS.length})</h2><button class="btn btn-accent" onclick="openSvcEdit()">+ Nuovo</button></div>
   <div class="panel" style="margin-bottom:14px"><h3>📊 I più usati questa settimana <span style="margin-left:auto;font-size:10px;color:var(--ink3)">sessioni in calendario</span></h3>
-    ${ranked.slice(0,5).map(sv=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:12px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${sv.color};margin-right:6px"></span>${esc(sv.name)}</span><b>${usage(sv.id)} sess · 🪙${tokSp(sv.id)}</b></div>
+    ${topRank.slice(0,5).map(sv=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:12px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${sv.color};margin-right:6px"></span>${esc(sv.name)}</span><b>${usage(sv.id)} sess · 🪙${tokSp(sv.id)}</b></div>
     <div class="pbar" style="margin-top:3px"><i style="width:${Math.round(usage(sv.id)/mxU*100)}%;background:${sv.color}"></i></div></div>`).join('')}</div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
-    <th>Servizio</th><th>Tipo</th><th>Sessioni sett.</th><th>🪙 spesi</th><th>Durata</th><th>Gettoni</th><th>Partecipanti</th><th>Abilitati</th><th>IVA</th><th></th>
+    ${ths('svc','name','Servizio','buildServizi')}${ths('svc','tl','Tipo','buildServizi')}${ths('svc','use','Sessioni sett.','buildServizi')}${ths('svc','tokS','🪙 spesi','buildServizi')}${ths('svc','dur','Durata','buildServizi')}${ths('svc','tok','Gettoni','buildServizi')}${ths('svc','maxP','Partecipanti','buildServizi')}${ths('svc','req','Abilitati','buildServizi')}${ths('svc','vat','IVA','buildServizi')}<th></th>
   </tr></thead><tbody>
   ${ranked.map(s=>`<tr onclick="openSvcEdit('${s.id}')" style="cursor:pointer">
     <td><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${s.color};margin-right:8px;vertical-align:middle"></span><strong>${esc(s.name)}</strong></td>
@@ -1858,39 +1889,46 @@ function packsHtml(forId){
     <div style="font-size:11px;color:var(--ink3)">${cli?'IVA inclusa':`+IVA ${p.vat}% = €${tot}`}</div></div></div>`}).join('')}</div>`
 }
 function buildGettoni(){
-  const sold=LEDGER.filter(l=>l.type==='acquisto').reduce((s,l)=>s+l.qty,0)
-  const granted=LEDGER.filter(l=>l.type==='accredito').reduce((s,l)=>s+l.qty,0)
-  const spent=-LEDGER.filter(l=>l.type==='spesa').reduce((s,l)=>s+l.qty,0)
+  const per=window.TOK_PER||'all'
+  const perLbl={oggi:'oggi',sett:'ultimi 7 giorni',mese:'ultimo mese',all:'da sempre'}[per]
+  const L=LEDGER.filter(l=>ledgerAge(l)<=tokPerDays())
+  const sold=L.filter(l=>l.type==='acquisto').reduce((s,l)=>s+l.qty,0)
+  const granted=L.filter(l=>l.type==='accredito').reduce((s,l)=>s+l.qty,0)
+  const spent=-L.filter(l=>l.type==='spesa').reduce((s,l)=>s+l.qty,0)
   const wallet=CLIENTS.reduce((s,c)=>s+c.tok,0)
   const tokVal=(TOK_PACKS[1].price/TOK_PACKS[1].qty)
+  const rows=tsorted('tok',CLIENTS.map(c=>({id:c.id,name:c.name,tok:c.tok,trName:staffOf(c.trainer)?staffOf(c.trainer).name:'—'})))
+  const regRows=tsorted('tokreg',L.map(l=>({...l,age:ledgerAge(l),cname:(CLIENTS.find(x=>x.id===l.client)||{}).name||'—'}))).slice(0,20)
   C().innerHTML=`<div class="sec-head"><h2>Gestione Gettoni</h2></div>
+  <div class="tog-row">
+    ${[['oggi','Oggi'],['sett','7 giorni'],['mese','Mese'],['all','Da sempre']].map(([k,l])=>`<button class="tog ${per===k?'on':''}" onclick="window.TOK_PER='${k}';buildGettoni()">${l}</button>`).join('')}</div>
   <div class="cards">
-    <div class="kpi"><div class="label">Venduti (periodo)</div><div class="val">${sold}</div><div class="sub">+ ${granted} accreditati da admin</div></div>
-    <div class="kpi"><div class="label">Spesi su prenotazioni</div><div class="val">${spent}</div></div>
-    <div class="kpi"><div class="label">Nei portafogli clienti</div><div class="val">${wallet}</div></div>
-    <div class="kpi"><div class="label">Valore residuo (debito)</div><div class="val">€${(wallet*tokVal).toFixed(0)}</div><div class="sub">ricavo differito — gettoni non spesi</div></div>
+    <div class="kpi"><div class="label">Venduti (${perLbl})</div><div class="val">${sold}</div><div class="sub">+ ${granted} accreditati da admin</div></div>
+    <div class="kpi"><div class="label">Utilizzati (${perLbl})</div><div class="val">${spent}</div></div>
+    <div class="kpi"><div class="label">Nei portafogli clienti</div><div class="val">${wallet}</div><div class="sub">saldo attuale — non dipende dal periodo</div></div>
+    <div class="kpi"><div class="label">Valore residuo (debito)</div><div class="val">€${(wallet*tokVal).toFixed(0)}</div><div class="sub">ricavo differito — gettoni non usati</div></div>
   </div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
-    <th>Cliente</th><th>Disponibili</th><th>Trainer</th><th></th>
+    ${ths('tok','name','Cliente','buildGettoni')}${ths('tok','tok','Disponibili','buildGettoni')}${ths('tok','trName','Trainer','buildGettoni')}<th></th>
   </tr></thead><tbody>
-  ${CLIENTS.map(c=>{const tr=staffOf(c.trainer)
-    return`<tr><td><strong>${esc(c.name)}</strong></td>
+  ${rows.map(c=>`<tr><td><strong>${esc(c.name)}</strong></td>
       <td><span style="font-size:18px;font-weight:700;color:${c.tok===0?'var(--danger)':'var(--accent)'}">${c.tok}</span></td>
-      <td style="font-size:12px;color:var(--ink2)">${tr?esc(tr.name):'—'}</td>
+      <td style="font-size:12px;color:var(--ink2)">${esc(c.trName)}</td>
       <td style="text-align:right">
         <button class="btn btn-outline btn-sm" style="margin-right:4px" onclick="openTokLog('${c.id}')">Log</button>
         ${ROLE==='admin'?`<button class="btn btn-outline btn-sm" style="margin-right:4px" onclick="openAssignTok('${c.id}')">Accredita</button>`:''}
         <button class="btn btn-accent btn-sm" onclick="openCheckout('t10','${c.id}')">Vendi</button></td>
-    </tr>`}).join('')}
+    </tr>`).join('')}
   </tbody></table></div></div>
-  <div class="sub-head">Registro movimenti (chi · cosa)</div>
-  <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr><th>Data</th><th>Cliente</th><th>Tipo</th><th>Gettoni</th><th>Causale</th><th>Operatore</th></tr></thead><tbody>
-  ${LEDGER.slice(0,15).map(l=>{const cc=CLIENTS.find(x=>x.id===l.client)
-    return`<tr><td style="color:var(--ink3);font-size:12px">${l.date}</td><td>${cc?esc(cc.name):'—'}</td>
+  <div class="sub-head">Registro movimenti — ${perLbl} (chi · cosa)</div>
+  <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
+    ${ths('tokreg','age','Data','buildGettoni')}${ths('tokreg','cname','Cliente','buildGettoni')}${ths('tokreg','type','Tipo','buildGettoni')}${ths('tokreg','qty','Gettoni','buildGettoni')}<th>Causale</th>${ths('tokreg','by','Operatore','buildGettoni')}
+  </tr></thead><tbody>
+  ${regRows.length?regRows.map(l=>`<tr><td style="color:var(--ink3);font-size:12px">${l.date}</td><td>${esc(l.cname)}</td>
     <td><span class="pill ${l.qty>0?(l.type==='acquisto'?'pill-accent':'pill-ok'):'pill-muted'}">${l.type}</span></td>
     <td style="font-weight:700;color:${l.qty>0?'var(--ok)':'var(--ink2)'}">${l.qty>0?'+':''}${l.qty}</td>
     <td style="color:var(--ink2);font-size:12px">${esc(l.desc)}</td>
-    <td style="color:var(--ink3);font-size:12px">${esc(l.by||'—')}</td></tr>`}).join('')}
+    <td style="color:var(--ink3);font-size:12px">${esc(l.by||'—')}</td></tr>`).join(''):'<tr><td colspan="6" style="color:var(--ink3)">Nessun movimento nel periodo</td></tr>'}
   </tbody></table></div></div>
   <div class="sub-head">Pacchetti a listino</div>${packsHtml()}`
 }
@@ -1917,8 +1955,8 @@ function buildMyTok(){
     <div class="kpi"><div class="label">Spesi in totale</div><div class="val">${-my.filter(l=>l.qty<0).reduce((s,l)=>s+l.qty,0)}</div></div></div>
   <div class="sub-head">Acquista altri gettoni</div>${packsHtml()}
   <div class="sub-head">Storico movimenti</div>
-  <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr><th>Data</th><th>Tipo</th><th>Gettoni</th><th>Cosa</th><th>Chi</th></tr></thead><tbody>
-  ${my.length?my.map(l=>`<tr>
+  <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>${ths('myl','age','Data','buildMyTok')}${ths('myl','type','Tipo','buildMyTok')}${ths('myl','qty','Gettoni','buildMyTok')}<th>Cosa</th>${ths('myl','by','Chi','buildMyTok')}</tr></thead><tbody>
+  ${my.length?tsorted('myl',my.map(l=>({...l,age:ledgerAge(l)}))).map(l=>`<tr>
     <td style="color:var(--ink3);font-size:12px">${l.date}</td>
     <td><span class="pill ${l.qty>0?(l.type==='acquisto'?'pill-accent':'pill-ok'):'pill-muted'}">${l.type}</span></td>
     <td style="font-weight:700;color:${l.qty>0?'var(--ok)':'var(--ink2)'}">${l.qty>0?'+':''}${l.qty}</td>
@@ -2117,9 +2155,9 @@ function buildPagamenti(){
     :'<div style="color:var(--ink3);font-size:13px">Nessun incasso registrato oggi.</div>'}</div>
   <div class="sub-head">Registro movimenti</div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
-    <th>N. doc</th><th>Data</th><th>Cliente</th><th>Descrizione</th><th>Linea</th><th>Metodo</th><th>IVA</th><th>Importo</th><th>Stato</th><th></th>
+    ${ths('pay','num','N. doc','buildPagamenti')}${ths('pay','date','Data','buildPagamenti')}${ths('pay','client','Cliente','buildPagamenti')}<th>Descrizione</th>${ths('pay','line','Linea','buildPagamenti')}${ths('pay','method','Metodo','buildPagamenti')}${ths('pay','vat','IVA','buildPagamenti')}${ths('pay','amount','Importo','buildPagamenti')}${ths('pay','status','Stato','buildPagamenti')}<th></th>
   </tr></thead><tbody>
-  ${PAYMENTS.map(p=>`<tr><td style="font-family:monospace;font-size:11px">${p.num}</td>
+  ${tsorted('pay',PAYMENTS).map(p=>`<tr><td style="font-family:monospace;font-size:11px">${p.num}</td>
       <td style="color:var(--ink3);font-size:12px">${p.date.slice(5)}</td>
       <td>${esc(p.client)}</td><td style="font-size:12px">${esc(p.desc)}</td>
       <td style="font-size:11px;color:var(--ink3)">${p.line}</td>
@@ -2896,8 +2934,8 @@ function buildImpostazioni(){
     </div>`
   }else if(setTab==='utenti'){
     B.innerHTML=`<div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
-      <th>Utente</th><th>Email</th><th>Ruolo</th><th>Ultimo accesso</th><th>Stato</th><th></th></tr></thead><tbody>
-      ${USERS.map(u=>`<tr style="${u.active?'':'opacity:.5'}">
+      ${ths('usr','name','Utente','buildImpostazioni')}${ths('usr','email','Email','buildImpostazioni')}${ths('usr','role','Ruolo','buildImpostazioni')}<th>Ultimo accesso</th>${ths('usr','active','Stato','buildImpostazioni')}<th></th></tr></thead><tbody>
+      ${tsorted('usr',USERS).map(u=>`<tr style="${u.active?'':'opacity:.5'}">
         <td>${u.ava} <b>${esc(u.name)}</b>${u.sanitario?' <span class="pill pill-accent" style="font-size:9px">SANITARIO</span>':''}</td>
         <td style="font-size:12px;color:var(--ink3)">${esc(u.email)}</td>
         <td><span class="pill pill-muted">${ROLE_LBL[u.role]}</span></td>
