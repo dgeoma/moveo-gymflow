@@ -338,7 +338,14 @@ canvas{width:100%;height:120px;display:block}
   .grid2{grid-template-columns:1fr}
   .cards{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .ndrop,.udrop{right:4px}
+  body.has-bottom #bottomNav{display:flex}
+  body.has-bottom .content{padding-bottom:80px}
+  body.has-bottom .hamb{display:none}
 }
+#bottomNav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border2);z-index:80;padding:6px 4px calc(8px + env(safe-area-inset-bottom))}
+#bottomNav .bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--ink3);padding:4px 2px;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#bottomNav .bn.on{color:var(--accent)}
+#bottomNav .bn .i{font-size:19px;line-height:1}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -352,6 +359,8 @@ canvas{width:100%;height:120px;display:block}
       <option value="reception">Reception (Giulia)</option>
       <option value="trainer">Trainer (Marco)</option>
       <option value="client">Cliente (Luca)</option>
+      <option value="socio">Socio (Mario)</option>
+      <option value="fiscale">Commercialista</option>
     </select>
   </div>
   <div id="navList"></div>
@@ -378,6 +387,7 @@ canvas{width:100%;height:120px;display:block}
 <div class="stamp">Licenza demo · Moveo Wellness · © G. Dragos — non distribuire</div>
 <div id="toasts"></div>
 <div id="printArea"></div>
+<div id="bottomNav"></div>
 <div class="overlay" id="overlay" onclick="closeModal(event)"><div class="modal" id="modalBox"></div></div>
 <div class="gate" id="gate">
   <button class="btn btn-outline btn-sm" id="themeBtnGate" title="Tema chiaro/scuro" style="position:absolute;top:14px;right:14px" onclick="toggleTheme()">☀️</button>
@@ -402,55 +412,94 @@ const USERS=[
   {id:'u8',name:'Chiara Neri',email:'chiara@moveowellness.it',ava:'🤸',role:'trainer',staffId:'chiara',active:true,last:'ieri 12:15'},
   {id:'u9',name:'Luca Moretti',email:'luca@example.com',ava:'🙋',role:'client',clientId:'c1',active:true,last:'oggi 07:30'},
   {id:'u10',name:'Ex-dipendente (test revoca)',email:'ex@moveowellness.it',ava:'🚫',role:'trainer',active:false,last:'12 giu'},
+  {id:'u11',name:'Mario Bianchi',email:'mario.socio@moveowellness.it',ava:'💼',role:'socio',active:true,last:'ven 18:20'},
+  {id:'u12',name:'Studio Riva',email:'studio@rivacommercialisti.it',ava:'🧾',role:'fiscale',active:true,last:'lun 09:00'},
 ]
 
 /* ═══════════ DATI ═══════════ */
 const STAFF=[
+  {id:'emanuele',name:'Emanuele D’Amico',ava:'👑',roles:['PT','Nutrizionista'],bio:'Titolare — PT e nutrizione.',avail:{Mar:[9,17],Mer:[14,20],Gio:[9,13]},dayServices:{Mar:['s4','s11','s7']},blocks:[{day:0,start:9,dur:8,label:'Ufficio'}]},
   {id:'marco',name:'Marco Rossi',ava:'💪',roles:['PT','Pilates'],bio:'Functional training e riabilitazione sportiva.',avail:{Lun:[8,20],Mar:[8,20],Mer:[8,20],Gio:[8,20],Ven:[8,18]},blocks:[{day:2,start:13,dur:1,label:'Pausa'}]},
   {id:'giulia',name:'Giulia Bianchi',ava:'🥗',roles:['PT','Nutrizionista'],bio:'Nutrizionista sportiva con 8 anni di esperienza.',avail:{Lun:[9,18],Mer:[9,18],Ven:[9,16]},blocks:[]},
   {id:'sara',name:'Sara Conti',ava:'🧘',roles:['Pilates','Reformer'],bio:'Istruttrice Pilates e Reformer certificata STOTT.',avail:{Lun:[7,14],Mar:[7,14],Mer:[7,14],Gio:[7,14],Ven:[7,14],Sab:[8,12]},blocks:[{day:4,start:9,dur:2,label:'Formazione'}]},
   {id:'luca',name:'Luca Ferri',ava:'🏋️',roles:['PT'],bio:'Ex atleta, specializzato in forza e condizionamento.',avail:{Mar:[10,20],Gio:[10,20],Sab:[9,13]},blocks:[]},
-  {id:'davide',name:'Davide Marino',ava:'💆',roles:['Osteopatia','Riabilitazione'],sanitario:true,bio:'Osteopata D.O., percorsi di riabilitazione e recupero funzionale.',avail:{Lun:[9,17],Mer:[9,17],Ven:[9,17]},blocks:[]},
+  {id:'davide',name:'Davide Marino',ava:'💆',roles:['Osteopatia','Massoterapia'],sanitario:true,bio:'Osteopata D.O., percorsi di riabilitazione e recupero funzionale.',avail:{Lun:[9,17],Mer:[9,17],Ven:[9,17]},blocks:[]},
   {id:'chiara',name:'Chiara Neri',ava:'🤸',roles:['Reformer','Pilates'],bio:'Reformer specialist, lezioni small group e di gruppo.',avail:{Lun:[8,20],Mar:[8,20],Gio:[8,20],Ven:[8,18],Sab:[9,13]},blocks:[]},
 ]
 /* req = ruoli staff abilitati · equip = attrezzatura vincolante · vat: '22' o 'esente' (art.10 sanitario) */
 const SVCS=[
-  {id:'s1',name:'Personal Training 1:1',type:'ONE_TO_ONE',dur:60,tok:2,min:1,max:1,color:'#8FFF00',req:['PT'],vat:'22'},
-  {id:'s9',name:'PT di coppia (1:2)',type:'ONE_TO_TWO',dur:60,tok:2,min:2,max:2,color:'#b6ff5a',req:['PT'],vat:'22'},
-  {id:'s2',name:'Pilates 1:1',type:'ONE_TO_ONE',dur:55,tok:2,min:1,max:1,color:'#6ee6f5',req:['Pilates'],vat:'22'},
-  {id:'s3',name:'Reformer Class',type:'ONE_TO_MANY',dur:55,tok:1,min:2,max:6,color:'#a78bfa',req:['Reformer'],equip:'eq2',vat:'22'},
-  {id:'s5',name:'Corso di gruppo',type:'MANY_TO_MANY',dur:50,tok:1,min:4,max:12,color:'#e84040',req:['PT','Pilates','Reformer'],vat:'22'},
-  {id:'s4',name:'Consulenza Nutrizionale',type:'ONE_TO_ONE',dur:50,tok:2,min:1,max:1,color:'#f0a830',req:['Nutrizionista'],vat:'22'},
-  {id:'s7',name:'Valutazione InBody',type:'ONE_TO_ONE',dur:30,tok:1,min:1,max:1,color:'#f97316',req:['PT','Nutrizionista'],equip:'eq1',vat:'22'},
-  {id:'s10',name:'Osteopatia',type:'ONE_TO_ONE',dur:45,tok:2,min:1,max:1,color:'#22d3ee',req:['Osteopatia'],vat:'esente'},
-  {id:'s8',name:'Riabilitazione',type:'ONE_TO_ONE',dur:50,tok:2,min:1,max:1,color:'#ec4899',req:['Riabilitazione'],vat:'esente'},
-  {id:'s6',name:'Yoga Flow',type:'ONE_TO_MANY',dur:60,tok:1,min:2,max:10,color:'#3ecf8e',req:['Pilates'],vat:'22'},
+  {id:'s1',name:'Personal Training',type:'ONE_TO_ONE',dur:60,tok:4,min:1,max:1,color:'#8FFF00',req:['PT'],vat:'22',comp:25},
+  {id:'s2',name:'Reformer Personal',type:'ONE_TO_ONE',dur:55,tok:4,min:1,max:1,color:'#6ee6f5',req:['Reformer'],equip:'eq2',vat:'22',comp:25},
+  {id:'s8',name:'Trattamento Osteopatico',type:'ONE_TO_ONE',dur:45,tok:4,min:1,max:1,color:'#22d3ee',req:['Osteopatia'],vat:'esente',comp:30},
+  {id:'s5',name:'Small Class',type:'ONE_TO_MANY',dur:50,tok:1,min:2,max:8,color:'#e84040',req:['PT','Pilates','Reformer'],vat:'22',comp:12},
+  {id:'s3',name:'Reformer Class',type:'ONE_TO_MANY',dur:55,tok:2,min:2,max:6,color:'#a78bfa',req:['Reformer'],equip:'eq2',vat:'22',comp:15},
+  {id:'s6',name:'Personal Class',type:'ONE_TO_ONE',dur:50,tok:1,min:1,max:1,color:'#3ecf8e',req:['PT','Pilates'],vat:'22',comp:12},
+  {id:'s9',name:'Personal Group (max 3)',type:'ONE_TO_MANY',dur:60,tok:2,min:2,max:3,color:'#b6ff5a',req:['PT'],vat:'22',comp:18},
+  {id:'s12',name:'Massaggio Linfodrenante Vodder',type:'ONE_TO_ONE',dur:50,tok:6.5,min:1,max:1,color:'#f472b6',req:['Massoterapia'],vat:'esente',comp:40},
+  {id:'s10',name:'Massaggio Decontratturante',type:'ONE_TO_ONE',dur:50,tok:4.5,min:1,max:1,color:'#fb923c',req:['Massoterapia'],vat:'esente',comp:30},
+  {id:'s4',name:'Visita Nutrizionale',type:'ONE_TO_ONE',dur:60,tok:8,min:1,max:1,color:'#f0a830',req:['Nutrizionista'],vat:'esente',comp:50},
+  {id:'s11',name:'Controllo Dieta',type:'ONE_TO_ONE',dur:30,tok:5,min:1,max:1,color:'#facc15',req:['Nutrizionista'],vat:'esente',comp:30},
+  {id:'s7',name:'Impedenziometria (InBody)',type:'ONE_TO_ONE',dur:20,tok:2,min:1,max:1,color:'#f97316',req:['PT','Nutrizionista'],equip:'eq1',vat:'22',comp:10},
+  {id:'s13',name:'Ingresso Open',type:'OPEN',dur:60,tok:0.5,min:1,max:1,color:'#9ca3af',req:[],vat:'22',comp:0,noBook:true},
+]
+/* LIVELLI MOVEO — prezzo gettone per acquisti CUMULATI (brochure) */
+const LEVELS=[
+ {k:'Start',min:0,p:12,gift:'—'},
+ {k:'Smart',min:45,p:11.40,gift:'Borraccia o asciugamano'},
+ {k:'Plus',min:90,p:10.80,gift:'Borraccia e asciugamano'},
+ {k:'Pro',min:120,p:10.20,gift:'Borsone Moveo'},
+ {k:'Elite',min:300,p:9.60,gift:'Kit completo Moveo'},
+]
+function walletOf(c){return c&&c.famHead?(CLIENTS.find(x=>x.id===c.famHead)||c):c}
+function levelOf(c){const w=walletOf(c);const t=w.cumTok||0;let L=LEVELS[0];LEVELS.forEach(l=>{if(t>=l.min)L=l});return L}
+function tokPrice(c){return levelOf(c).p}
+function nextLevel(c){const w=walletOf(c);return LEVELS.find(l=>l.min>(w.cumTok||0))}
+const MEMBERSHIP={start:{label:'Moveo Start',price:50,renew:30},plus:{label:'Moveo Plus',price:80,renew:30}}
+/* PACCHETTI UNICI mono-servizio — 12 mesi (brochure) */
+const PACKDEFS=[
+ {id:'pk_pt10',svc:'s1',n:10,price:490,label:'PT — 10 lezioni'},
+ {id:'pk_pt20',svc:'s1',n:20,price:940,label:'PT — 20 lezioni'},
+ {id:'pk_pt30',svc:'s1',n:30,price:1270,label:'PT — 30 lezioni'},
+ {id:'pk_rc10',svc:'s3',n:10,price:235,label:'Reformer Class — 10 lezioni'},
+ {id:'pk_rc20',svc:'s3',n:20,price:456,label:'Reformer Class — 20 lezioni'},
+ {id:'pk_rc30',svc:'s3',n:30,price:660,label:'Reformer Class — 30 lezioni'},
+ {id:'pk_open6',svc:'s13',n:999,price:300,label:'Ingresso Open Business — 6 mesi (11–17)'},
+ {id:'pk_nut1',svc:'s4',n:1,price:150,label:'Percorso alimentare — Prima visita'},
+ {id:'pk_nut2',svc:'s11',n:1,price:80,label:'Percorso alimentare — Rinnovo e controllo'},
+ {id:'pk_imp',svc:'s7',n:1,price:20,label:'Impedenziometria'},
+ {id:'pk_ost',svc:'s8',n:1,price:50,label:'Osteopatia — trattamento singolo'},
+ {id:'pk_lin',svc:'s12',n:1,price:80,label:'Linfodrenaggio — singolo'},
+ {id:'pk_dec',svc:'s10',n:1,price:60,label:'Decontratturante — singolo'},
 ]
 const CLIENTS=[
-  {id:'c1',name:'Luca Moretti',email:'luca@example.com',tel:'+39 338 1234567',dob:'1990-03-15',cf:'MRTLCU90C15H501X',obj:'Dimagrimento',status:'attivo',tok:8,trainer:'marco',since:'2024-01-10',notes:'',streak:5,workouts:47,goalWeight:78,goalFat:16,goalMuscle:34,lastCheck:12,
+  {id:'c1',name:'Luca Moretti',email:'luca@example.com',tel:'+39 338 1234567',dob:'1990-03-15',cf:'MRTLCU90C15H501X',obj:'Dimagrimento',status:'attivo',tok:8,trainer:'marco',since:'2024-01-10',notes:'',streak:5,workouts:47,goalWeight:78,goalFat:16,goalMuscle:34,cumTok:126,mship:{type:'plus',until:'2027-01-10'},family:'f1',packs:[{id:'cpk1',svc:'s1',label:'PT — 10 lezioni',left:4,tot:10,exp:'2026-11-02'}],cert:{until:'2027-02-01'},lastCheck:12,
    weight:[85,84.2,83.5,82.8,82.1,81.4],fat_pct:[22,21.5,21,20.5,20,19.5],muscle_kg:[30,30.5,31,31.4,31.8,32.1],water_pct:[52,52.5,53,53.5,54,54.2],bmi:[26.5,26.2,25.9,25.7,25.4,25.2],metage:[35,34,33,33,32,32]},
-  {id:'c2',name:'Marta Rossi',email:'marta@example.com',tel:'+39 347 9876543',dob:'1985-07-22',cf:'RSSMRT85L62H501Y',obj:'Tonificazione',status:'attivo',tok:5,trainer:'giulia',since:'2024-02-15',notes:'Intolleranza al glutine',streak:3,workouts:31,goalWeight:60,goalFat:22,goalMuscle:26,lastCheck:34,
+  {id:'c2',name:'Marta Rossi',email:'marta@example.com',tel:'+39 347 9876543',dob:'1985-07-22',cf:'RSSMRT85L62H501Y',obj:'Tonificazione',status:'attivo',tok:5,trainer:'giulia',since:'2024-02-15',notes:'Intolleranza al glutine',streak:3,workouts:31,goalWeight:60,goalFat:22,goalMuscle:26,cumTok:60,mship:{type:'start',until:'2026-09-15'},ratePlan:{tokTot:60,rateTot:3,ratePaid:1,rateAmt:228,nextDue:'2026-08-01'},lastCheck:34,
    weight:[62,61.8,61.5,61.2,61,60.8],fat_pct:[28,27.5,27,26.5,26,25.8],muscle_kg:[24,24.2,24.5,24.8,25,25.2],water_pct:[50,50.5,51,51.5,52,52.3],bmi:[23.1,23,22.9,22.8,22.7,22.6],metage:[30,29,29,28,28,27]},
-  {id:'c3',name:'Paolo Neri',email:'paolo@example.com',tel:'+39 333 4567890',dob:'1978-11-08',cf:'NRIPLA78S08H501Z',obj:'Performance',status:'attivo',tok:12,trainer:'luca',since:'2023-11-01',notes:'Ciclismo amatoriale',streak:8,workouts:64,goalWeight:76,goalFat:12,goalMuscle:39,lastCheck:8,
+  {id:'c3',name:'Paolo Neri',email:'paolo@example.com',tel:'+39 333 4567890',dob:'1978-11-08',cf:'NRIPLA78S08H501Z',obj:'Performance',status:'attivo',tok:12,trainer:'luca',since:'2023-11-01',notes:'Ciclismo amatoriale',streak:8,workouts:64,goalWeight:76,goalFat:12,goalMuscle:39,cumTok:310,mship:{type:'plus',until:'2027-03-01'},cert:{until:'2026-08-01'},lastCheck:8,
    weight:[74,74.2,74.5,74.8,75,75.2],fat_pct:[15,14.8,14.5,14.2,14,13.8],muscle_kg:[36,36.3,36.7,37,37.3,37.6],water_pct:[56,56.5,57,57.5,58,58.2],bmi:[22.8,22.9,23,23.1,23.1,23.2],metage:[28,27,27,26,26,25]},
-  {id:'c4',name:'Anna Verdi',email:'anna@example.com',tel:'+39 329 6543210',dob:'1995-05-30',cf:'VRDNNA95E70H501A',obj:'Postura',status:'attivo',tok:3,trainer:'sara',since:'2024-03-20',notes:'',streak:2,workouts:18,goalWeight:56,goalFat:19,goalMuscle:24,lastCheck:61,
+  {id:'c4',name:'Anna Verdi',email:'anna@example.com',tel:'+39 329 6543210',dob:'1995-05-30',cf:'VRDNNA95E70H501A',obj:'Postura',status:'attivo',tok:3,trainer:'sara',since:'2024-03-20',notes:'',streak:2,workouts:18,goalWeight:56,goalFat:19,goalMuscle:24,cumTok:45,mship:{type:'start',until:'2026-06-30'},lastCheck:61,
    weight:[58,57.8,57.6,57.4,57.2,57],fat_pct:[24,23.5,23,22.5,22,21.8],muscle_kg:[22,22.2,22.5,22.7,23,23.2],water_pct:[53,53.5,54,54.5,55,55.2],bmi:[21.5,21.4,21.3,21.2,21.2,21.1],metage:[26,26,25,25,24,24]},
-  {id:'c5',name:'Riccardo Blu',email:'r.blu@example.com',tel:'+39 340 1112233',dob:'1988-09-12',cf:'BLURCC88P12H501B',obj:'Dimagrimento',status:'sospeso',tok:0,trainer:'marco',since:'2023-09-05',notes:'In pausa per lavoro',goalWeight:85,goalFat:24,goalMuscle:30,lastCheck:88,
+  {id:'c5',name:'Riccardo Blu',email:'r.blu@example.com',tel:'+39 340 1112233',dob:'1988-09-12',cf:'BLURCC88P12H501B',obj:'Dimagrimento',status:'sospeso',tok:0,trainer:'marco',since:'2023-09-05',notes:'In pausa per lavoro',goalWeight:85,goalFat:24,goalMuscle:30,cumTok:20,mship:{type:'start',until:'2026-05-01'},cert:{until:'2026-03-15'},lastCheck:88,
    weight:[92,91.5,91,90.5,90,89.8],fat_pct:[30,29.5,29,28.5,28,27.8],muscle_kg:[28,28.2,28.5,28.8,29,29.2],water_pct:[49,49.5,50,50.5,51,51.2],bmi:[28.4,28.2,28.1,27.9,27.8,27.7],metage:[40,39,39,38,38,37]},
-  {id:'c6',name:'Elena Costa',email:'elena@example.com',tel:'+39 366 7788990',dob:'1992-01-25',cf:'CSTLNE92A65H501C',obj:'Pilates',status:'attivo',tok:6,trainer:'sara',since:'2024-04-01',notes:'',streak:4,workouts:26,goalWeight:54,goalFat:19,goalMuscle:23,lastCheck:19,
+  {id:'c6',name:'Elena Costa',email:'elena@example.com',tel:'+39 366 7788990',dob:'1992-01-25',cf:'CSTLNE92A65H501C',obj:'Pilates',status:'attivo',tok:6,trainer:'sara',since:'2024-04-01',notes:'',streak:4,workouts:26,goalWeight:54,goalFat:19,goalMuscle:23,cumTok:92,mship:{type:'start',until:'2027-04-01'},lastCheck:19,
    weight:[55,54.8,54.6,54.4,54.2,54],fat_pct:[22,21.8,21.5,21.2,21,20.8],muscle_kg:[21,21.2,21.4,21.6,21.8,22],water_pct:[54,54.2,54.5,54.8,55,55.2],bmi:[20.4,20.3,20.2,20.2,20.1,20],metage:[24,24,23,23,22,22]},
-  {id:'c7',name:'Giorgio Fabbri',email:'giorgio@example.com',tel:'+39 331 2223344',dob:'1983-04-11',cf:'FBBGRG83D11H501D',obj:'Riabilitazione',status:'attivo',tok:4,trainer:'davide',since:'2024-01-20',notes:'Post-operatorio ginocchio',streak:1,workouts:9,goalWeight:80,goalFat:20,goalMuscle:35,lastCheck:6,
+  {id:'c7',name:'Giorgio Fabbri',email:'giorgio@example.com',tel:'+39 331 2223344',dob:'1983-04-11',cf:'FBBGRG83D11H501D',obj:'Riabilitazione',status:'attivo',tok:4,trainer:'davide',since:'2024-01-20',notes:'Post-operatorio ginocchio',streak:1,workouts:9,goalWeight:80,goalFat:20,goalMuscle:35,cumTok:48,mship:{type:'start',until:'2027-01-20'},lastCheck:6,
    weight:[84,83.5,83,82.6,82.2,82],fat_pct:[24,23.6,23.2,22.9,22.6,22.4],muscle_kg:[33,33.2,33.5,33.7,33.9,34],water_pct:[53,53.2,53.5,53.7,54,54.1],bmi:[25.9,25.7,25.5,25.4,25.2,25.1],metage:[34,34,33,33,32,32]},
-  {id:'c8',name:'Francesca Sala',email:'francesca@example.com',tel:'+39 340 5556677',dob:'1991-09-02',cf:'SLAFNC91P42H501E',obj:'Reformer',status:'attivo',tok:7,trainer:'chiara',since:'2024-02-28',notes:'',streak:3,workouts:22,goalWeight:57,goalFat:21,goalMuscle:24,lastCheck:15,
+  {id:'c8',name:'Francesca Sala',email:'francesca@example.com',tel:'+39 340 5556677',dob:'1991-09-02',cf:'SLAFNC91P42H501E',obj:'Reformer',status:'attivo',tok:7,trainer:'chiara',since:'2024-02-28',notes:'',streak:3,workouts:22,goalWeight:57,goalFat:21,goalMuscle:24,cumTok:95,mship:{type:'plus',until:'2027-02-28'},packs:[{id:'cpk2',svc:'s3',label:'Reformer Class — 20 lezioni',left:12,tot:20,exp:'2027-02-28'}],lastCheck:15,
    weight:[60,59.7,59.4,59.2,59,58.8],fat_pct:[26,25.6,25.2,24.9,24.6,24.4],muscle_kg:[22,22.2,22.4,22.6,22.8,23],water_pct:[52,52.3,52.6,52.9,53.2,53.4],bmi:[22,21.9,21.8,21.7,21.6,21.5],metage:[28,27,27,26,26,25]},
-  {id:'c9',name:'Alessandro Greco',email:'alessandro@example.com',tel:'+39 333 8889900',dob:'1979-12-19',cf:'GRCLSN79T19H501F',obj:'Osteopatia',status:'attivo',tok:2,trainer:'davide',since:'2023-12-05',notes:'Mal di schiena cronico',streak:1,workouts:7,goalWeight:82,goalFat:22,goalMuscle:36,lastCheck:4,
+  {id:'c9',name:'Alessandro Greco',email:'alessandro@example.com',tel:'+39 333 8889900',dob:'1979-12-19',cf:'GRCLSN79T19H501F',obj:'Osteopatia',status:'attivo',tok:2,trainer:'davide',since:'2023-12-05',notes:'Mal di schiena cronico',streak:1,workouts:7,goalWeight:82,goalFat:22,goalMuscle:36,cumTok:30,mship:{type:'start',until:'2026-12-05'},lastCheck:4,
    weight:[86,85.7,85.4,85.2,85,84.8],fat_pct:[25,24.7,24.4,24.2,24,23.8],muscle_kg:[34,34.1,34.3,34.5,34.6,34.8],water_pct:[52,52.2,52.4,52.6,52.8,53],bmi:[26.5,26.4,26.3,26.2,26.1,26],metage:[36,36,35,35,34,34]},
-  {id:'c10',name:'Valentina Rizzo',email:'valentina@example.com',tel:'+39 366 1112200',dob:'1994-06-14',cf:'RZZVNT94H54H501G',obj:'Tonificazione',status:'attivo',tok:9,trainer:'giulia',since:'2024-03-10',notes:'',streak:6,workouts:38,goalWeight:58,goalFat:21,goalMuscle:27,lastCheck:22,
+  {id:'c10',name:'Valentina Rizzo',email:'valentina@example.com',tel:'+39 366 1112200',dob:'1994-06-14',cf:'RZZVNT94H54H501G',obj:'Tonificazione',status:'attivo',tok:9,trainer:'giulia',since:'2024-03-10',notes:'',streak:6,workouts:38,goalWeight:58,goalFat:21,goalMuscle:27,cumTok:52,mship:{type:'start',until:'2027-03-10'},lastCheck:22,
    weight:[63,62.6,62.2,61.9,61.6,61.3],fat_pct:[27,26.5,26,25.6,25.2,24.9],muscle_kg:[24,24.3,24.6,24.8,25,25.2],water_pct:[51,51.4,51.8,52.1,52.4,52.6],bmi:[22.5,22.4,22.2,22.1,22,21.9],metage:[29,28,28,27,26,26]},
-  {id:'c11',name:'Matteo Villa',email:'matteo@example.com',tel:'+39 347 3334455',dob:'1987-02-27',cf:'VLLMTT87B27H501H',obj:'Performance',status:'attivo',tok:11,trainer:'luca',since:'2023-10-15',notes:'Triathlon',streak:11,workouts:88,goalWeight:74,goalFat:11,goalMuscle:38,lastCheck:9,
+  {id:'c11',name:'Matteo Villa',email:'matteo@example.com',tel:'+39 347 3334455',dob:'1987-02-27',cf:'VLLMTT87B27H501H',obj:'Performance',status:'attivo',tok:11,trainer:'luca',since:'2023-10-15',notes:'Triathlon',streak:11,workouts:88,goalWeight:74,goalFat:11,goalMuscle:38,cumTok:130,mship:{type:'plus',until:'2026-10-15'},ratePlan:{tokTot:90,rateTot:3,ratePaid:2,rateAmt:324,nextDue:'2026-07-25'},cert:{until:'2026-07-30'},lastCheck:9,
    weight:[73,73.2,73.4,73.6,73.8,74],fat_pct:[14,13.8,13.6,13.4,13.2,13],muscle_kg:[35,35.3,35.6,35.9,36.1,36.3],water_pct:[57,57.3,57.6,57.9,58.2,58.4],bmi:[22.4,22.5,22.5,22.6,22.7,22.7],metage:[27,26,26,25,25,24]},
-  {id:'c12',name:'Chiara Moretti',email:'chiara.m@example.com',tel:'+39 329 7778899',dob:'1996-11-30',cf:'MRTCHR96S70H501I',obj:'Pilates',status:'sospeso',tok:0,trainer:'sara',since:'2024-04-18',notes:'In pausa',goalWeight:55,goalFat:21,goalMuscle:22,lastCheck:74,
+  {id:'c12',name:'Chiara Moretti',email:'chiara.m@example.com',tel:'+39 329 7778899',dob:'1996-11-30',cf:'MRTCHR96S70H501I',obj:'Pilates',status:'sospeso',tok:0,trainer:'sara',since:'2024-04-18',notes:'In pausa',goalWeight:55,goalFat:21,goalMuscle:22,cumTok:15,mship:{type:'start',until:'2026-04-18'},followUp:{date:'2026-07-14',note:'Ha fatto il tour sabato — proporre pacchetto PT 10'},lastCheck:74,
    weight:[57,56.9,56.8,56.7,56.6,56.5],fat_pct:[23,22.9,22.8,22.7,22.6,22.5],muscle_kg:[21,21.1,21.2,21.3,21.4,21.5],water_pct:[53,53.1,53.2,53.3,53.4,53.5],bmi:[21,20.9,20.9,20.8,20.8,20.7],metage:[26,26,25,25,25,24]},
+  {id:'c13',name:'Sofia Moretti',email:'sofia@example.com',tel:'+39 338 2223344',dob:'1992-05-20',cf:'MRTSFO92E60G482Q',obj:'Tonificazione',status:'attivo',tok:0,famHead:'c1',family:'f1',trainer:'chiara',since:'2025-02-01',notes:'Famiglia Moretti',streak:2,workouts:12,goalWeight:58,lastCheck:20,
+   weight:[61,60.8,60.5,60.4,60.2,60],fat_pct:[26,25.8,25.5,25.3,25,24.8],muscle_kg:[22,22.1,22.3,22.4,22.6,22.7],water_pct:[52,52.1,52.3,52.5,52.7,52.9],bmi:[22.4,22.3,22.2,22.2,22.1,22],metage:[29,29,28,28,27,27]},
+  {id:'c14',name:'Tommaso Moretti',email:'tommaso@example.com',tel:'+39 338 5556677',dob:'2008-09-12',cf:'MRTTMS08P12G482W',obj:'Sport',status:'attivo',tok:0,famHead:'c1',family:'f1',trainer:'luca',since:'2025-09-01',notes:'Famiglia Moretti — minore',streak:3,workouts:20,goalWeight:70,lastCheck:9,
+   weight:[64,64.5,65,65.4,65.8,66.2],fat_pct:[15,14.9,14.8,14.7,14.6,14.5],muscle_kg:[28,28.4,28.8,29.1,29.5,29.8],water_pct:[57,57.2,57.4,57.6,57.8,58],bmi:[20.9,21,21.2,21.3,21.5,21.6],metage:[16,16,16,16,16,16]},
 ]
 const CLIENT_TOTAL=312
 /* stato sessione: prog | svolta | noshow · roster per classi */
@@ -496,6 +545,9 @@ const BOOKINGS=[
 ]
 /* ledger PER CLIENTE — fonte di verità dei movimenti gettoni */
 const LEDGER=[
+  {client:'c13',date:'12 lug',type:'spesa',qty:-2,desc:'Reformer Class — Chiara (borsellino famiglia)',by:'Sofia Moretti'},
+  {client:'c14',date:'11 lug',type:'spesa',qty:-1,desc:'Small Class — Marco (borsellino famiglia)',by:'Tommaso Moretti'},
+  {client:'c14',date:'8 lug',type:'spesa',qty:-4,desc:'Personal Training — Luca F. (borsellino famiglia)',by:'Tommaso Moretti'},
   {client:'c1',date:'8 lug',type:'spesa',qty:-2,desc:'Consulenza Nutrizionale — Giulia (Ven 10 lug)',by:'Luca Moretti'},
   {client:'c1',date:'6 lug',type:'spesa',qty:-2,desc:'PT 1:1 — Marco (svolta 6 lug)',by:'Luca Moretti'},
   {client:'c1',date:'1 lug',type:'acquisto',qty:10,desc:'Pacchetto 10 gettoni — ric. R-2026-0114',by:'Giulia Reception'},
@@ -524,6 +576,8 @@ const PAYMENTS=[
   {id:'p7',num:'R-2026-0111',date:'2026-06-27',client:'Anna Verdi',desc:'Osteopatia — seduta',line:'Sanitario',amount:60,method:'contanti',vat:'esente',status:'pagato'},
 ]
 /* serie ricavi 6 mesi (dati demo dichiarati, coerenti con 312 clienti attivi) */
+const REV5=[{m:'Feb',v:22100},{m:'Mar',v:23400},{m:'Apr',v:24000},{m:'Mag',v:24900},{m:'Giu',v:25200},{m:'Lug',v:24100}]
+const SPESE6=[{m:'Feb',v:17800},{m:'Mar',v:18100},{m:'Apr',v:18300},{m:'Mag',v:18900},{m:'Giu',v:19200},{m:'Lug',v:9400}]
 const REV6=[{m:'Feb',v:26400},{m:'Mar',v:27900},{m:'Apr',v:28600},{m:'Mag',v:29800},{m:'Giu',v:30400},{m:'Lug',v:14350}]
 const REV_LINES=[{l:'PT',p:38},{l:'Pilates/Reformer',p:24},{l:'Corsi',p:10},{l:'Nutrizione',p:9},{l:'Sanitario',p:12},{l:'Bar/Shop',p:7}]
 /* cartella clinica — accesso riservato (GDPR art.9): solo professionisti sanitari; altri = break-glass registrato */
@@ -592,11 +646,7 @@ const EQUIPMENT=[
   {id:'eq3',name:'Squat Rack',type:'Free weights',qty:2,buf_pre:0,buf_post:0,max_c:2,bookable:false},
   {id:'eq4',name:'TRX',type:'Sospensione',qty:4,buf_pre:0,buf_post:0,max_c:4,bookable:false},
 ]
-const TOK_PACKS=[
-  {id:'t5',label:'5 gettoni',qty:5,price:50,vat:22},
-  {id:'t10',label:'10 gettoni',qty:10,price:90,vat:22},
-  {id:'t20',label:'20 gettoni',qty:20,price:160,vat:22},
-]
+const TOK_QTY=[10,20,45,90,120,300]
 const NOTIFS=[
   {id:'n1',roles:['admin','reception'],ico:'💳',title:'Pagamento in attesa',body:'Anna Verdi — Mensile Pilates €80 (bonifico)',time:'09:10',read:false},
   {id:'n2',roles:['admin'],ico:'🔧',title:'Manutenzione attrezzatura',body:'Reformer 2 segnalato da Sara Conti',time:'ieri',read:false},
@@ -612,7 +662,7 @@ const AUDIT=[
   {t:'08/07 09:15',u:'Emanuele D’Amico',a:'Assegnati 4 gettoni a Luca Moretti (bonus fedeltà)'},
   {t:'12/06 18:30',u:'Emanuele D’Amico',a:'Disattivato utente ex@moveowellness.it (revoca accessi)'},
 ]
-const CENTER={name:'Moveo Wellness',piva:'IT01234567890',addr:'Via del Benessere 12, Pescara',open:'7:00',close:'21:00',noshowPolicy:'consuma',autoReminder:true,remindH:24,birthday:true,winback:true,digest:true}
+const CENTER={name:'Moveo Wellness',payoff:'Active Wellness Club',piva:'IT01234567890',addr:'Via Marco Polo 102, Pescara',tel:'085 204 6869',web:'moveowellness.it',open:'7:00',close:'21:00',noshowPolicy:'consuma',autoReminder:true,remindH:24,birthday:true,winback:true,digest:true}
 const AUTOM=[
   {id:'a1',on:true,ico:'⏰',t:'Promemoria sessione (WhatsApp)',d:'24h e 2h prima. Riduce i no-show: il cliente conferma con un tap.'},
   {id:'a2',on:true,ico:'🎂',t:'Auguri di compleanno',d:'Messaggio automatico + 1 gettone omaggio (configurabile).'},
@@ -640,16 +690,18 @@ const NAV_ITEMS={
   mymis:{ico:'📊',label:'I miei progressi'}, mytok:{ico:'🪙',label:'I miei gettoni'},
   dash:{ico:'🏠',label:'Dashboard'}, mybookings:{ico:'📋',label:'Le mie prenotazioni'},
   nutrition:{ico:'🥗',label:'Alimentazione'}, workout:{ico:'🏋️',label:'Allenamento'},
-  panoramica:{ico:'📈',label:'Panoramica'}, recap:{ico:'✨',label:'Funzionalità'}, recoggi:{ico:'🗓️',label:'Oggi'},
+  panoramica:{ico:'📈',label:'Panoramica'}, recap:{ico:'✨',label:'Funzionalità'}, ingressi:{ico:'🎫',label:'Ingressi'}, soci:{ico:'💼',label:'Andamento (Soci)'}, recoggi:{ico:'🗓️',label:'Oggi'},
   impostazioni:{ico:'⚙️',label:'Impostazioni'},
 }
 const ROLE_NAV={
-  admin:['panoramica','recap','cal','clienti','staff','servizi','misurazioni','gettoni','shop','pagamenti','messaggi','equipment','gcal','impostazioni'],
-  reception:['recoggi','cal','clienti','gettoni','shop','pagamenti','messaggi','impostazioni'],
+  admin:['panoramica','recap','cal','ingressi','clienti','staff','servizi','misurazioni','gettoni','shop','pagamenti','messaggi','equipment','gcal','impostazioni','soci'],
+  reception:['recoggi','cal','clienti','ingressi','gettoni','shop','pagamenti','messaggi','impostazioni'],
   trainer:['mycal','myclienti','misurazioni','messaggi','impostazioni'],
+  socio:['soci','impostazioni'],
+  fiscale:['pagamenti','impostazioni'],
   client:['dash','mybookings','mymis','nutrition','workout','mytok','messaggi','impostazioni'],
 }
-const ROLE_LBL={admin:'Super Admin',reception:'Reception',trainer:'Trainer',client:'Cliente'}
+const ROLE_LBL={admin:'Super Admin',reception:'Reception',trainer:'Trainer',client:'Cliente',socio:'Socio',fiscale:'Commercialista'}
 
 let ROLE='admin', CURRENT_USER=null, CURRENT_TRAINER='marco', CURRENT_CLIENT='c1'
 let CAL_WOFF=0, CAL_SVC='', CAL_SORT=''
@@ -894,20 +946,33 @@ function calStaffList(){let l=STAFF.filter(st=>!CAL_SVC||qualified(st.id,CAL_SVC
   else if(CAL_SORT==='low')l=[...l].sort((a,b)=>allSess(a)-allSess(b))
   return l}
 function ledger(c,type,qty,desc){LEDGER.unshift({client:c.id,date:'oggi',type,qty,desc,by:(typeof CURRENT_USER!=='undefined'&&CURRENT_USER)?CURRENT_USER.name:'Sistema'})}
-function spendTok(c,n,desc){c.tok-=n;ledger(c,'spesa',-n,desc)}
-function creditTok(c,n,desc){c.tok+=n;ledger(c,'accredito',n,desc)}
+function spendTok(c,n,desc){const w=walletOf(c);w.tok=+(w.tok-n).toFixed(1);ledger(c,'spesa',-n,desc)}
+function creditTok(c,n,desc){const w=walletOf(c);w.tok=+(w.tok+n).toFixed(1);ledger(c,'accredito',n,desc)}
+function chargeFor(c,svc,desc){
+  const w=walletOf(c)
+  const pk=(w.packs||[]).find(p=>p.svc===svc.id&&p.left>0)
+  if(pk){pk.left--;ledger(c,'pacchetto',0,`${desc} — 1 lezione dal pacchetto «${pk.label}» (${pk.left}/${pk.tot} rimaste)`);return {pack:pk}}
+  spendTok(c,svc.tok,desc);return {tok:svc.tok}
+}
+function activePacks(c){const w=walletOf(c);return (w.packs||[]).filter(p=>p.left>0)}
+function rateStatus(c){const w=walletOf(c);const r=w.ratePlan;if(!r)return null
+  const paidQuota=Math.round(r.tokTot*r.ratePaid/r.rateTot)
+  const usedReal=+(r.tokTot-Math.max(0,Math.min(w.tok,r.tokTot))).toFixed(1)
+  const over=+(usedReal-paidQuota).toFixed(1)
+  return {...r,paidQuota,used:usedReal,over:over>0?over:0}
+}
 function nextReceipt(){let mx=100;PAYMENTS.forEach(p=>{const m=/R-2026-(\d+)/.exec(p.num||'');if(m)mx=Math.max(mx,+m[1])});return 'R-2026-'+String(mx+1).padStart(4,'0')}
 function addPayment(client,desc,line,amount,method,vat,status){const num=nextReceipt();PAYMENTS.unshift({id:'p'+Date.now(),num,date:todayISO(),client,desc,line,amount:+(+amount).toFixed(2),method,vat,status:status||'pagato'});audit(`Incasso ${num} — ${client} €${(+amount).toFixed(2)} (${method})`);return num}
 /* persistenza demo: localStorage (backup/restore reali in Impostazioni → Sistema) */
-const STATE_V='gf_v97'
+const STATE_V='gf_v99'
 function replaceArr(dst,src){dst.length=0;src.forEach(x=>dst.push(x))}
-function saveState(){try{localStorage.setItem(STATE_V,JSON.stringify({CLIENTS,SESSIONS,BOOKINGS,LEDGER,PAYMENTS,NOTIFS,AUDIT,USERS,STAFF,SVCS,CENTER,AUTOM,MSGS,WORKOUTS,NUTRI,EQUIPMENT,CLINICAL,SHOP,BULK_LOG}))}catch(e){}}
+function saveState(){try{localStorage.setItem(STATE_V,JSON.stringify({CLIENTS,SESSIONS,BOOKINGS,LEDGER,PAYMENTS,NOTIFS,AUDIT,USERS,STAFF,SVCS,CENTER,AUTOM,MSGS,WORKOUTS,NUTRI,EQUIPMENT,CLINICAL,SHOP,BULK_LOG,RNOTES,GATELOG}))}catch(e){}}
 function loadState(){try{const s=JSON.parse(localStorage.getItem(STATE_V)||'null');if(!s)return
   replaceArr(CLIENTS,s.CLIENTS||[]);replaceArr(SESSIONS,s.SESSIONS||[]);replaceArr(BOOKINGS,s.BOOKINGS||[])
   replaceArr(LEDGER,s.LEDGER||[]);replaceArr(PAYMENTS,s.PAYMENTS||[]);replaceArr(NOTIFS,s.NOTIFS||[])
   replaceArr(AUDIT,s.AUDIT||[]);replaceArr(USERS,s.USERS||[]);replaceArr(STAFF,s.STAFF||[]);replaceArr(SVCS,s.SVCS||[])
   replaceArr(MSGS,s.MSGS||[]);replaceArr(WORKOUTS,s.WORKOUTS||[]);replaceArr(NUTRI,s.NUTRI||[]);replaceArr(EQUIPMENT,s.EQUIPMENT||[])
-  if(s.SHOP)replaceArr(SHOP,s.SHOP);if(s.BULK_LOG)replaceArr(BULK_LOG,s.BULK_LOG)
+  if(s.SHOP)replaceArr(SHOP,s.SHOP);if(s.BULK_LOG)replaceArr(BULK_LOG,s.BULK_LOG);if(s.RNOTES)replaceArr(RNOTES,s.RNOTES);if(s.GATELOG)replaceArr(GATELOG,s.GATELOG)
   Object.assign(CENTER,s.CENTER||{});replaceArr(AUTOM,s.AUTOM||AUTOM);Object.keys(s.CLINICAL||{}).forEach(k=>CLINICAL[k]=s.CLINICAL[k])
 }catch(e){}}
 function resetDemo(){localStorage.removeItem(STATE_V);location.reload()}
@@ -939,6 +1004,8 @@ function clientBusy(c,day,start,dur,exclId){
 function allChecks(staffId,svcId,day,start,dur,exclId){
   const errs=[]
   if(!qualified(staffId,svcId))errs.push(`${staffOf(staffId).name.split(' ')[0]} non è abilitato a «${svcOf(svcId).name}» (richiede: ${svcOf(svcId).req.join('/')})`)
+  const ds=staffOf(staffId).dayServices
+  if(ds&&ds[DAYS[day]]&&!ds[DAYS[day]].includes(svcId))errs.push(`${staffOf(staffId).name.split(' ')[0]} il ${DAYS[day]} fa solo: ${ds[DAYS[day]].map(x=>svcOf(x)?svcOf(x).name:x).join(', ')}`)
   errs.push(...conflictsFor(staffId,day,start,dur,exclId))
   const eqE=equipConflict(svcId,day,start,dur,exclId);if(eqE)errs.push(eqE)
   return errs
@@ -948,8 +1015,9 @@ function allChecks(staffId,svcId,day,start,dur,exclId){
 function renderGateCode(){
   document.getElementById('gateBox').innerHTML=`
     <div class="gl">GymFlow</div><div class="gs">Moveo Wellness — MVP riservato</div>
-    <div class="gt">Codice d’accesso</div>
-    <input id="gateInput" maxlength="12" placeholder="••••••" onkeydown="if(event.key==='Enter')tryUnlock()">
+    <div class="gt">Codice d’accesso <span style="font-weight:400;color:var(--ink3)">(1 di 2)</span></div>
+    <input id="gateInput" maxlength="12" placeholder="TUTTO MAIUSCOLO" onkeydown="if(event.key==='Enter')tryUnlock()">
+    <div style="font-size:11px;color:var(--ink3);margin-top:6px;text-align:left">🔑 È il <b>codice del centro</b>, in MAIUSCOLO. Non è la password dei profili (quella arriva dopo).</div>
     <label class="remember"><input type="checkbox" id="gateRem"> Ricorda questo dispositivo</label>
     <div class="gerr" id="gateErr"></div>
     <button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:6px" onclick="tryUnlock()">Continua</button>
@@ -974,12 +1042,12 @@ function renderLogin(){
   document.getElementById('gateBox').innerHTML=`
     <div class="gl">GymFlow</div><div class="gs">Accedi al tuo profilo</div>
     <div style="max-height:280px;overflow-y:auto;margin-bottom:10px;text-align:left">${list}</div>
-    <input type="password" id="loginPwd" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()" style="letter-spacing:normal">
+    <input type="password" id="loginPwd" placeholder="Password del profilo (minuscolo)" onkeydown="if(event.key==='Enter')doLogin()" style="letter-spacing:normal">
     <div class="gerr" id="loginErr"></div>
     <button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:6px" onclick="doLogin()">Accedi</button>
     <div style="font-size:11px;color:var(--ink3);margin-top:10px;cursor:pointer" onclick="toast('Ti abbiamo inviato un link di reimpostazione via email (simulato).')">Password dimenticata?</div>
     <div style="font-size:11px;color:var(--ink3);margin-top:6px;cursor:pointer" onclick="lockDemo()">🔒 Torna alla schermata di blocco</div>
-    <div class="gf">Demo: password unica <b>${DEMO_PWD}</b> per tutti i profili.<br>In produzione: credenziali individuali, hash lato server, 2FA opzionale.</div>`
+    <div class="gf">Passo 2 di 2 — qui va la <b>password del profilo</b> (demo: <b>${DEMO_PWD}</b>, minuscolo, uguale per tutti), non il codice d’accesso.<br>In produzione: credenziali individuali, hash lato server, 2FA opzionale.</div>`
 }
 function doLogin(){
   const u=USERS.find(x=>x.id===LOGIN_SEL)
@@ -1076,12 +1144,18 @@ function buildNav(){
     return `<div class="nav-item ${i===0?'active':''}" data-view="${k}" onclick="nav(this)"><span class="ico">${it.ico}</span>${it.label}${badge}</div>`
   }).join('')
   document.getElementById('gsWrap').style.display=(ROLE==='admin'||ROLE==='reception')?'block':'none'
+  const bn=document.getElementById('bottomNav'),bItems=items.slice(0,4)
+  document.body.classList.toggle('has-bottom',ROLE==='client'||ROLE==='trainer')
+  const bLbl=k=>{const w=NAV_ITEMS[k].label.replace(/^(Le mie|I miei|Il mio|Miei)\s+/i,'').split(' ')[0];return w[0].toUpperCase()+w.slice(1)}
+  bn.innerHTML=bItems.map((k,i)=>`<div class="bn ${i===0?'on':''}" data-v="${k}" onclick="go('${k}')"><span class="i">${NAV_ITEMS[k].ico}</span>${bLbl(k)}</div>`).join('')
+    +`<div class="bn" onclick="document.getElementById('sidebar').classList.add('open')"><span class="i">☰</span>Menu</div>`
   document.getElementById('topTitle').textContent=NAV_ITEMS[items[0]].label
   updBell();updMsgBadge();render(items[0])
 }
 function nav(el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'))
   el.classList.add('active')
+  document.querySelectorAll('#bottomNav .bn').forEach(b=>b.classList.toggle('on',b.dataset.v===el.dataset.view))
   document.getElementById('topTitle').textContent=NAV_ITEMS[el.dataset.view].label
   document.getElementById('sidebar').classList.remove('open')
   render(el.dataset.view)
@@ -1198,6 +1272,9 @@ function openEvt(id){
       <div style="font-size:12px;color:var(--ink3);margin-bottom:4px">Cliente</div><div style="font-size:14px;font-weight:500">${esc(e.client)}</div></div>`
   }
   showModal(`<h2>${esc(svc.name)} ${stPill}</h2>
+    ${e.rec?`<div style="margin-bottom:6px"><span class="pill pill-accent">↻ ricorrente — ogni settimana ×${e.rec}</span></div>`:''}
+    ${e.noteTr&&ROLE!=='client'?`<div style="background:var(--card2);border-left:3px solid var(--warn);border-radius:6px;padding:7px 10px;font-size:12.5px;margin-bottom:6px">🗒 <b>Nota trainer:</b> ${esc(e.noteTr)}</div>`:''}
+    ${e.noteCl?`<div style="background:var(--card2);border-left:3px solid var(--accent);border-radius:6px;padding:7px 10px;font-size:12.5px;margin-bottom:6px">📝 <b>Nota per il cliente:</b> ${esc(e.noteCl)}</div>`:''}
     <p style="color:var(--ink3);font-size:12px;margin-bottom:12px">${esc(st.name)} · ${dayLbl(e.day)} ${fmt(e.start)} — ${fmt(e.start+e.dur)} · ${svc.tok} gettoni</p>
     ${body}
     ${canOp&&e.status==='prog'?`<div class="modal-foot" style="justify-content:flex-start;border-top:1px solid var(--border);padding-top:12px">
@@ -1241,9 +1318,13 @@ function rosterAdd(id){
 function doRosterAdd(id){
   const e=SESSIONS.find(x=>x.id===id);const svc=svcOf(e.svc)
   const c=CLIENTS.find(x=>x.id===document.getElementById('ra-c').value)
-  if(c.tok<svc.tok){toast(`${c.name} non ha abbastanza gettoni (${c.tok}/${svc.tok})`,'err');return}
+  const wR=walletOf(c)
+  if(!activePacks(c).some(p=>p.svc===svc.id)&&wR.tok<svc.tok){
+    if(!confirm(`${c.name} ha solo ${wR.tok}🪙 (servono ${svc.tok}). Portarlo SOTTOSOGLIA a ${(wR.tok-svc.tok).toFixed(1)}? (solo reception/admin)`))return
+    notify(['admin'],'⚠️','Cliente sottosoglia',`${c.name} → ${(wR.tok-svc.tok).toFixed(1)}🪙 da ${CURRENT_USER.name}`)
+    audit(`SOTTOSOGLIA: ${c.name} autorizzato da ${CURRENT_USER.name}`)}
   const busyR=clientBusy(c,e.day,e.start,e.dur,e.id);if(busyR.length){toast(busyR[0],'err');return}
-  spendTok(c,svc.tok,`${svc.name} — ${dayLbl(e.day)} ${fmt(e.start)}`)
+  chargeFor(c,svc,`${svc.name} — ${dayLbl(e.day)} ${fmt(e.start)}`)
   e.roster.push(c.name)
   BOOKINGS.unshift({id:'b'+Date.now(),client:c.id,staff:e.staff,svc:svc.id,day:e.day,start:e.start,dur:e.dur,date:dayLbl(e.day),status:'confermata',sessId:e.id})
   audit(`Aggiunto ${c.name} a ${svc.name} ${dayLbl(e.day)}`);toast(`${c.name} iscritto — ${svc.tok} gettoni scalati`)
@@ -1290,6 +1371,7 @@ function doMoveEvt(id){
 }
 function askCancelSession(id){
   const e=SESSIONS.find(x=>x.id===id);const svc=svcOf(e.svc)
+  window._cancelSeries=false
   const names=e.roster?e.roster:[e.client]
   showModal(`<h2>Cancellare la sessione?</h2>
     <p style="font-size:13px;color:var(--ink2);margin-bottom:8px">${svc.name} · ${dayLbl(e.day)} ${fmt(e.start)}</p>
@@ -1331,11 +1413,15 @@ function openNewEvt(sid,h,day,blockMode,preClient){
     <div style="display:flex;gap:8px">
       <div class="form-row" style="flex:1"><label>Giorno</label><select id="ns-d">${dayOpts}</select></div>
       <div class="form-row" style="flex:1"><label>Ora inizio</label><input type="time" id="ns-t" value="${defTime}"></div></div>
+    ${!blockMode?`<div class="form-row"><label>↻ Ripeti ogni settimana</label><select id="ns-rec"><option value="1">No — solo questa</option>${[4,8,12].map(n=>`<option value="${n}">Sì — per ${n} settimane</option>`).join('')}</select></div>
+    <div style="display:flex;gap:8px">
+      <div class="form-row" style="flex:1"><label>Nota per il trainer (interna)</label><input id="ns-ntr" placeholder="Es. cliente nuovo → analisi corporea"></div>
+      <div class="form-row" style="flex:1"><label>Nota per il cliente (con notifica)</label><input id="ns-ncl" placeholder="Es. porta certificato e acqua"></div></div>`:''}
     <div id="ns-err" style="color:var(--danger);font-size:12px;min-height:14px"></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal()">Annulla</button>
       <button class="btn btn-accent" onclick="saveEvt(${blockMode?'true':'false'})">Crea</button></div>`)
 }
-function saveEvt(blockMode,force){
+function saveEvt(blockMode,force,subOk){
   const g=x=>document.getElementById(x)
   const stv=g('ns-st').value
   const dv=+g('ns-d').value
@@ -1354,25 +1440,39 @@ function saveEvt(blockMode,force){
   const cl=CLIENTS.find(x=>x.id===cid)
   const errs=allChecks(stv,sv.id,dv,start,sv.dur/60)
   if(cl)errs.push(...clientBusy(cl,dv,start,sv.dur/60))
-  const tokErr=cl&&cl.tok<sv.tok?`${cl.name} non ha abbastanza gettoni (${cl.tok}/${sv.tok})`:null
-  if(tokErr){g('ns-err').innerHTML=esc(tokErr);return}
+  const wcl=cl?walletOf(cl):null
+  const hasPack=cl&&activePacks(cl).some(p=>p.svc===sv.id)
+  const tokErr=cl&&!hasPack&&wcl.tok<sv.tok?`${cl.name} non ha gettoni sufficienti (${wcl.tok}/${sv.tok})`:null
+  if(tokErr&&!subOk){
+    g('ns-err').innerHTML=esc(tokErr)+`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-outline btn-sm" onclick="saveEvt(${blockMode?'true':'false'},${force?'true':'false'},true)">Porta sottosoglia (saldo ${(wcl.tok-sv.tok).toFixed(1)})</button>
+      <button class="btn btn-outline btn-sm" onclick="closeModal();openCheckout(10,'${walletOf(cl).id}')">Ricarica ora</button></div>
+      <div style="font-size:11px;color:var(--ink3);margin-top:4px">Il sottosoglia è consentito solo da reception/amministrazione — il cliente in autonomia non può.</div>`
+    return}
+  if(tokErr&&subOk){notify(['admin'],'⚠️','Cliente sottosoglia',`${cl.name} portato a ${(wcl.tok-sv.tok).toFixed(1)}🪙 da ${CURRENT_USER.name}`);audit(`SOTTOSOGLIA: ${cl.name} a ${(wcl.tok-sv.tok).toFixed(1)}🪙 autorizzato da ${CURRENT_USER.name}`)}
   if(errs.length&&!(force&&ROLE==='admin')){
     g('ns-err').innerHTML=errs.map(esc).join('<br>')+(ROLE==='admin'?`<div style="margin-top:6px"><button class="btn btn-outline btn-sm" onclick="saveEvt(false,true)">Forza comunque (registrato)</button></div>`:'')
     return
   }
   if(force)audit(`OVERRIDE conflitti su nuova sessione ${sv.name} ${dayLbl(dv)} ${fmt(start)}`)
   const isGroup=sv.type!=='ONE_TO_ONE'
+  const rec=+((g('ns-rec')||{}).value||1)
+  const noteTr=(g('ns-ntr')||{}).value||'', noteCl=(g('ns-ncl')||{}).value||''
   const sess={id:'e'+Date.now(),staff:stv,svc:sv.id,day:dv,start,dur:sv.dur/60,status:'prog'}
+  if(rec>1)sess.rec=rec
+  if(noteTr)sess.noteTr=noteTr
+  if(noteCl)sess.noteCl=noteCl
   if(isGroup){sess.client=sv.name;sess.roster=cl?[cl.name]:[]}
   else{if(!cl){g('ns-err').textContent='Seleziona un cliente per una sessione individuale.';return}sess.client=cl.name;sess.clientId=cl.id}
-  if(cl)spendTok(cl,sv.tok,`${sv.name} — ${dayLbl(dv)} ${fmt(start)}`)
+  if(cl){for(let k=0;k<rec;k++)chargeFor(cl,sv,`${sv.name} — ${dayLbl(dv)} ${fmt(start)}${rec>1?` (ricorrente ${k+1}/${rec})`:''}`)}
   SESSIONS.push(sess)
   if(cl){const bid='b'+Date.now()
     if(isGroup){BOOKINGS.unshift({id:bid,client:cl.id,staff:stv,svc:sv.id,day:dv,start,dur:sv.dur/60,date:dayLbl(dv),status:'confermata',sessId:sess.id})}
     else{sess.bk=bid;BOOKINGS.unshift({id:bid,client:cl.id,staff:stv,svc:sv.id,day:dv,start,dur:sv.dur/60,date:dayLbl(dv),status:'confermata'})}}
   audit(`Creata ${sv.name} ${dayLbl(dv)} ${fmt(start)} (${staffOf(stv).name.split(' ')[0]}${cl?', '+cl.name:''})`)
   notify(['trainer'],'📅','Nuova sessione',`${sv.name} — ${dayLbl(dv)} ${fmt(start)}`)
-  toast('Sessione creata'+(cl?` — ${sv.tok} gettoni scalati a ${cl.name.split(' ')[0]}`:''))
+  if(noteCl&&cl)notify(['client'],'📝','Nota dal centro',`${sv.name} ${dayLbl(dv)}: ${noteCl}`)
+  toast('Sessione creata'+(rec>1?` — ricorrente ×${rec} settimane`:'')+(cl?` (addebitate ${rec>1?rec+' lezioni':'1 lezione'})`:''))
   closeModal();reRender()
 }
 /* ═══════════ CLIENTI (CRM) ═══════════ */
@@ -1412,10 +1512,10 @@ function renderClients(){
       return `<th onclick="doSort('${sk}')" style="cursor:pointer">${CRM_COLDEFS.find(d=>d[0]===k)[1]}${ar}</th>`}).join('')}<th></th>
   </tr></thead><tbody>
   ${list.map(c=>{const tr=staffOf(c.trainer)
-    const pc=c.status==='attivo'?'pill-ok':c.status==='sospeso'?'pill-warn':'pill-danger'
+    const pc=c.status==='attivo'?'pill-ok':c.status==='sospeso'?'pill-warn':(c.status==='prospect'||c.status==='tour')?'pill-accent':'pill-danger'
     const chk=c.lastCheck>45?`<span class="pill pill-danger">${c.lastCheck} gg</span>`:c.lastCheck>30?`<span class="pill pill-warn">${c.lastCheck} gg</span>`:`<span style="color:var(--ink3)">${c.lastCheck} gg</span>`
     const CELL={
-      name:`<td><strong style="cursor:pointer" onclick="openClient('${c.id}')" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(c.name)}</strong></td>`,
+      name:`<td>${cAva(c,22)} <strong style="cursor:pointer" onclick="openClient('${c.id}')" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${esc(c.name)}</strong>${c.family?' <span title="famiglia">👪</span>':''}</td>`,
       tel:`<td style="color:var(--ink3);font-size:12px">${esc(c.tel)}</td>`,
       email:`<td style="color:var(--ink3);font-size:12px">${esc(c.email)}</td>`,
       obj:`<td>${esc(c.obj)}</td>`,
@@ -1438,7 +1538,13 @@ function doSort(k){if(sortKey===k)sortAsc=!sortAsc;else{sortKey=k;sortAsc=true}r
 function openClientForm(id){
   const c=id?CLIENTS.find(x=>x.id===id):{name:'',email:'',tel:'',dob:'',cf:'',obj:'',trainer:'marco',notes:'',goalWeight:''}
   const trOpts=STAFF.map(s=>`<option value="${s.id}" ${s.id===c.trainer?'selected':''}>${esc(s.name)}</option>`).join('')
+  window._cfImg=c.avatarImg||null
   showModal(`<h2>${id?'Modifica anagrafica':'Nuovo Cliente'}</h2>
+    <div class="form-row"><label>Foto (per riconoscerlo in reception)</label>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="ava-upl" id="cfAvaBox" style="width:64px;height:64px;font-size:26px" onclick="document.getElementById('cfAvaFile').click()">${c.avatarImg?`<img class="ava-img" src="${c.avatarImg}">`:'👤'}<div class="ov">Foto</div></div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('cfAvaFile').click()">Carica foto</button>
+        <input type="file" id="cfAvaFile" accept="image/*" style="display:none" onchange="onCfImg(event)"></div></div>
     <div class="form-row"><label>Nome e Cognome *</label><input id="cf-n" value="${esc(c.name)}" placeholder="Mario Rossi"></div>
     <div style="display:flex;gap:8px">
       <div class="form-row" style="flex:1"><label>Email</label><input type="email" id="cf-e" value="${esc(c.email)}"></div>
@@ -1449,6 +1555,13 @@ function openClientForm(id){
     <div style="display:flex;gap:8px">
       <div class="form-row" style="flex:1"><label>Obiettivo</label><input id="cf-o" value="${esc(c.obj)}" placeholder="Dimagrimento…"></div>
       <div class="form-row" style="flex:1"><label>Peso obiettivo (kg)</label><input type="number" id="cf-g" value="${c.goalWeight||''}"></div></div>
+    <div style="display:flex;gap:8px">
+      <div class="form-row" style="flex:1"><label>Stato</label><select id="cf-st">${['attivo','prospect','tour','non interessato','sospeso'].map(x=>`<option ${((c.status||'attivo')===x)?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div class="form-row" style="flex:1"><label>Da ricontattare il</label><input type="date" id="cf-fu" value="${(c.followUp&&c.followUp.date)||''}"></div></div>
+    <div class="form-row"><label>Nota ricontatto</label><input id="cf-fun" value="${esc((c.followUp&&c.followUp.note)||'')}" placeholder="Es. ha fatto il tour, richiamare per proposta"></div>
+    <div class="form-row"><label>Certificato medico — scadenza</label><div style="display:flex;gap:8px;align-items:center">
+      <input type="date" id="cf-cert" value="${(c.cert&&c.cert.until)||''}" style="flex:1">
+      <button type="button" class="btn btn-outline btn-sm" onclick="toast('Scansione caricata in cartella (simulato)')">📎 Carica scan</button></div></div>
     <div class="form-row"><label>Trainer di riferimento</label><select id="cf-tr">${trOpts}</select></div>
     <div class="form-row"><label>Note (NON cliniche — visibili a reception)</label><textarea id="cf-nt" rows="2">${esc(c.notes)}</textarea></div>
     <div id="cf-err" style="color:var(--danger);font-size:12px;min-height:14px"></div>
@@ -1458,7 +1571,10 @@ function openClientForm(id){
 function saveClientForm(id){
   const g=x=>document.getElementById(x).value
   if(!g('cf-n').trim()||!g('cf-t').trim()){document.getElementById('cf-err').textContent='Nome e telefono sono obbligatori.';return}
-  const data={name:g('cf-n').trim(),email:g('cf-e').trim(),tel:g('cf-t').trim(),dob:g('cf-d'),cf:g('cf-cf').toUpperCase(),obj:g('cf-o'),goalWeight:+g('cf-g')||null,trainer:g('cf-tr'),notes:g('cf-nt')}
+  const data={name:g('cf-n').trim(),email:g('cf-e').trim(),tel:g('cf-t').trim(),dob:g('cf-d'),cf:g('cf-cf').toUpperCase(),obj:g('cf-o'),goalWeight:+g('cf-g')||null,trainer:g('cf-tr'),notes:g('cf-nt'),status:g('cf-st')}
+  if(window._cfImg)data.avatarImg=window._cfImg
+  data.followUp=g('cf-fu')?{date:g('cf-fu'),note:g('cf-fun')}:null
+  data.cert=g('cf-cert')?{until:g('cf-cert')}:null
   if(id){const c=CLIENTS.find(x=>x.id===id);const oldName=c.name;Object.assign(c,data)
     SESSIONS.forEach(s=>{if(s.clientId===id)s.client=c.name;if(s.roster){const i=s.roster.indexOf(oldName);if(i>-1)s.roster[i]=c.name}})
     audit(`Modificata anagrafica di ${c.name}`);toast('Anagrafica aggiornata');closeModal();openClient(id)}
@@ -1468,6 +1584,18 @@ function saveClientForm(id){
     audit(`Creato cliente ${data.name}`);toast('Cliente creato');closeModal();reRender()}
   saveState()
 }
+function onCfImg(e){const f=e.target.files[0];if(!f)return
+  if(!/^image\//.test(f.type)){toast('Seleziona un file immagine','err');return}
+  if(f.size>3*1024*1024){toast('Max 3MB','err');return}
+  const r=new FileReader();r.onload=()=>{window._cfImg=r.result
+    const b=document.getElementById('cfAvaBox');if(b)b.innerHTML=`<img class="ava-img" src="${r.result}"><div class="ov">Foto</div>`}
+  r.readAsDataURL(f)}
+function cAva(c,px){px=px||24;return c&&c.avatarImg?`<span class="stava" style="width:${px}px;height:${px}px"><img class="ava-img" src="${c.avatarImg}"></span>`:''}
+function certState(c){if(!c.cert||!c.cert.until)return {k:'mancante',cls:'pill-danger'}
+  const d=new Date(c.cert.until),now=new Date()
+  if(d<now)return {k:'scaduto '+c.cert.until,cls:'pill-danger'}
+  const gg=Math.round((d-now)/86400000)
+  return gg<30?{k:'scade tra '+gg+' gg',cls:'pill-warn'}:{k:'ok fino al '+c.cert.until,cls:'pill-ok'}}
 function toggleClientStatus(id){
   const c=CLIENTS.find(x=>x.id===id)
   c.status=c.status==='attivo'?'sospeso':'attivo'
@@ -1488,11 +1616,7 @@ function openClient(id){
       <div><div style="font-size:11px;color:var(--ink3)">Trainer</div>${tr?esc(tr.name):'—'}</div>
       <div><div style="font-size:11px;color:var(--ink3)">Obiettivo</div>${esc(c.obj)||'—'}</div>
       <div><div style="font-size:11px;color:var(--ink3)">Dal</div>${c.since}</div></div>
-    <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--ink3);margin-bottom:8px">GETTONI</div>
-      <div style="display:flex;gap:24px">
-        <div><div style="font-size:22px;font-weight:700;color:var(--accent)">${c.tok}</div><div style="font-size:11px;color:var(--ink3)">disponibili</div></div>
-        <div style="flex:1;text-align:right;align-self:center"><button class="btn btn-outline btn-sm" onclick="openTokLog('${c.id}')">Log movimenti</button></div></div></div>
+    ${commerceCard(c)}
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px">
       <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">PROSSIME SESSIONI</div>${upHtml}</div>
     ${c.notes?`<div style="font-size:12px;color:var(--ink3);background:var(--card2);padding:8px 10px;border-radius:6px;margin-bottom:10px">📝 ${esc(c.notes)}</div>`:''}
@@ -1572,12 +1696,40 @@ function saveMis(id){
   toast('Misurazione salvata — grafici aggiornati');closeModal();reRender()
 }
 /* scheda allenamento: il trainer la crea */
+const EXLIB=[
+ {n:'Panca piana',cat:'Petto'},{n:'Panca inclinata manubri',cat:'Petto'},{n:'Croci ai cavi',cat:'Petto'},
+ {n:'Squat',cat:'Gambe'},{n:'Leg press',cat:'Gambe'},{n:'Affondi',cat:'Gambe'},{n:'Stacco rumeno',cat:'Gambe'},{n:'Hip thrust',cat:'Glutei'},
+ {n:'Trazioni',cat:'Dorso'},{n:'Lat machine',cat:'Dorso'},{n:'Rematore bilanciere',cat:'Dorso'},{n:'Pulley basso',cat:'Dorso'},
+ {n:'Military press',cat:'Spalle'},{n:'Alzate laterali',cat:'Spalle'},{n:'Face pull',cat:'Spalle'},
+ {n:'Curl bilanciere',cat:'Braccia'},{n:'French press',cat:'Braccia'},{n:'Push-down',cat:'Braccia'},
+ {n:'Plank',cat:'Core'},{n:'Dead bug',cat:'Core'},{n:'Hundred (Pilates)',cat:'Pilates'},{n:'Roll up (Pilates)',cat:'Pilates'},
+ {n:'Footwork (Reformer)',cat:'Reformer'},{n:'Long stretch (Reformer)',cat:'Reformer'},
+]
+function exlibFilter(){
+  const q=(document.getElementById('wk-lib').value||'').toLowerCase().trim()
+  const hits=EXLIB.filter(x=>!q||x.n.toLowerCase().includes(q)||x.cat.toLowerCase().includes(q)).slice(0,7)
+  const el=document.getElementById('wk-lib-l');el.style.display='block'
+  el.innerHTML=hits.map(x=>`<div class="combo-it" onmousedown="exlibAdd('${x.n.replace(/'/g,"\\'")}')"><span>${x.n} <span style="color:var(--ink3);font-size:11px">· ${x.cat}</span></span><span style="color:var(--accent);font-size:11px">▶ video</span></div>`).join('')||'<div class="combo-it" style="color:var(--ink3)">Nessun esercizio — scrivilo a mano sotto</div>'
+}
+function exlibAdd(name){
+  const d=document.getElementById('wk-day').value,sr=document.getElementById('wk-sr').value||'3×10'
+  const ta=document.getElementById('wk-x')
+  ta.value=(ta.value?ta.value+'\n':'')+`${d} | ${name} | ${sr}`
+  document.getElementById('wk-lib').value='';document.getElementById('wk-lib-l').style.display='none'
+  toast(name+' aggiunto ('+d+')')
+}
 function openWorkoutForm(id){
   const c=CLIENTS.find(x=>x.id===id)
   showModal(`<h2>+ Scheda allenamento — ${esc(c.name)}</h2>
     <div class="form-row"><label>Titolo</label><input id="wk-t" placeholder="es. Upper/Lower — 4 giorni"></div>
-    <div class="form-row"><label>Esercizi (una riga per esercizio: <span style="font-family:monospace">Giorno | Esercizio | serie×rip</span>)</label>
-    <textarea id="wk-x" rows="6" placeholder="Lun | Panca piana | 4×8&#10;Lun | Rematore | 4×8&#10;Mer | Squat | 4×6"></textarea></div>
+    <div class="form-row"><label>📚 Libreria esercizi (con video) — cerca e clicca per aggiungere</label>
+      <div class="combo"><input class="combo-in" id="wk-lib" placeholder="🔍 panca, squat, plank…" autocomplete="off" oninput="exlibFilter()" onfocus="exlibFilter()">
+      <div class="combo-list" id="wk-lib-l" style="display:none"></div></div></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select class="selin" id="wk-day" style="flex:1">${DAYS.map(d=>`<option>${d}</option>`).join('')}</select>
+      <input class="combo-in" id="wk-sr" value="3×10" style="width:90px" title="serie×rip"></div>
+    <div class="form-row"><label>Esercizi della scheda (Giorno | Esercizio | serie×rip)</label>
+    <textarea id="wk-x" rows="6" placeholder="Lun | Panca piana | 4×8&#10;Mer | Squat | 4×6"></textarea></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="openClient('${id}')">Indietro</button>
       <button class="btn btn-accent" onclick="saveWorkout('${id}')">Assegna scheda</button></div>`)
 }
@@ -1648,7 +1800,8 @@ function openStaff(id){
     <div class="cards" style="margin-bottom:12px">
       <div class="kpi"><div class="label">Sessioni sett.</div><div class="val">${mine.length}</div></div>
       <div class="kpi"><div class="label">Clienti seguiti</div><div class="val">${clientiSeguiti(st)}</div></div>
-      <div class="kpi"><div class="label">Saturazione</div><div class="val" style="color:${occ>75?'var(--ok)':occ>45?'var(--warn)':'var(--ink3)'}">${occ}%</div><div class="sub">${hrs.toFixed(0)}h su ${avH}h disp.</div></div></div>
+      <div class="kpi"><div class="label">Saturazione</div><div class="val" style="color:${occ>75?'var(--ok)':occ>45?'var(--warn)':'var(--ink3)'}">${occ}%</div><div class="sub">${hrs.toFixed(0)}h su ${avH}h disp.</div></div>
+      <div class="kpi"><div class="label">Compenso sett. stimato</div><div class="val">€${mine.reduce((t,e)=>t+((svcOf(e.svc)||{}).comp||0)*(e.roster?1:1),0)}</div><div class="sub">tariffe per prestazione — «unica verità»</div></div></div>
     <div style="font-size:12px;font-weight:600;margin-bottom:6px">📈 Sessioni — ultime 6 settimane</div>
     <canvas id="stChart" style="height:110px"></canvas>
     <div style="font-size:12px;font-weight:600;margin:14px 0 6px">🏆 Servizi più erogati</div>
@@ -1772,7 +1925,8 @@ function openSvcEdit(id){
     <div class="form-row"><label>Tipo</label><select id="sv-t">${tOpt('ONE_TO_ONE','1:1 — Individuale')}${tOpt('ONE_TO_TWO','1:2 — Di coppia (1 trainer, 2 clienti)')}${tOpt('ONE_TO_MANY','1:N — Small Group')}${tOpt('MANY_TO_MANY','N:N — Open Class')}</select></div>
     <div style="display:flex;gap:8px">
       <div class="form-row" style="flex:1"><label>Durata (min)</label><input type="number" id="sv-d" value="${s.dur}"></div>
-      <div class="form-row" style="flex:1"><label>Gettoni</label><input type="number" id="sv-k" value="${s.tok}"></div></div>
+      <div class="form-row" style="flex:1"><label>Gettoni</label><input type="number" step=".5" id="sv-k" value="${s.tok}"></div>
+      <div class="form-row" style="flex:1"><label>Compenso staff €</label><input type="number" id="sv-comp" value="${s.comp||0}"></div></div>
     <div style="display:flex;gap:8px">
       <div class="form-row" style="flex:1"><label>Min partecipanti</label><input type="number" id="sv-min" value="${s.min}"></div>
       <div class="form-row" style="flex:1"><label>Max partecipanti</label><input type="number" id="sv-max" value="${s.max}"></div></div>
@@ -1789,7 +1943,7 @@ function openSvcEdit(id){
 function saveSvc(id){
   const g=x=>document.getElementById(x)
   const req=[...document.querySelectorAll('#sv-req .chip.sel')].map(c=>c.dataset.r)
-  const data={name:g('sv-n').value||'Senza nome',type:g('sv-t').value,dur:+g('sv-d').value,tok:+g('sv-k').value,min:+g('sv-min').value,max:+g('sv-max').value,color:g('sv-c').value,req,vat:g('sv-vat').value}
+  const data={name:g('sv-n').value||'Senza nome',type:g('sv-t').value,dur:+g('sv-d').value,comp:+(document.getElementById('sv-comp')||{value:0}).value||0,tok:+g('sv-k').value,min:+g('sv-min').value,max:+g('sv-max').value,color:g('sv-c').value,req,vat:g('sv-vat').value}
   if(id){Object.assign(svcOf(id),data);audit(`Modificato servizio: ${data.name}`)}
   else{SVCS.push({id:'s'+Date.now(),...data});audit(`Creato servizio: ${data.name}`)}
   toast('Servizio salvato');closeModal();buildServizi();saveState()
@@ -1894,12 +2048,17 @@ function drawChart(id,data,color,labels,H,goal){
 
 /* ═══════════ GETTONI ═══════════ */
 function packsHtml(forId){
-  const cli=ROLE==='client'
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
-  ${TOK_PACKS.map(p=>{const tot=(p.price*(1+p.vat/100)).toFixed(2);return `<div class="kpi" style="cursor:pointer" onclick="openCheckout('${p.id}'${forId?`,'${forId}'`:''})">
-    <div class="label">Pacchetto</div><div class="val">${p.qty} gettoni</div>
-    <div style="margin-top:8px"><div style="color:var(--accent);font-weight:700;font-size:18px">€${cli?tot:p.price}</div>
-    <div style="font-size:11px;color:var(--ink3)">${cli?'IVA inclusa':`+IVA ${p.vat}% = €${tot}`}</div></div></div>`}).join('')}</div>`
+  const c=CLIENTS.find(x=>x.id===(forId||CURRENT_CLIENT))||CLIENTS[0]
+  const price=tokPrice(c),lv=levelOf(c),base=LEVELS[0].p
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+    <span class="pill pill-accent">Livello ${lv.k}</span>
+    <span style="font-size:13px">Il tuo gettone: ${price<base?`<s style="color:var(--ink3)">€${base.toFixed(2)}</s> `:''}<b style="color:var(--accent)">€${price.toFixed(2)}</b> <span style="color:var(--ink3);font-size:11px">IVA inclusa</span></span>
+    ${nextLevel(c)?`<span style="font-size:11px;color:var(--ink3)">a ${nextLevel(c).min-(walletOf(c).cumTok||0)}🪙 dal livello ${nextLevel(c).k} (€${nextLevel(c).p.toFixed(2)})</span>`:'<span class="pill pill-ok">livello massimo 🏆</span>'}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+  ${TOK_QTY.map(q=>`<div class="kpi" style="cursor:pointer" onclick="openCheckout(${q}${forId?`,'${forId}'`:''})">
+    <div class="label">Ricarica</div><div class="val">${q} 🪙</div>
+    <div style="margin-top:6px;color:var(--accent);font-weight:700;font-size:17px">€${(q*price).toFixed(0)}</div>
+    <div style="font-size:10.5px;color:var(--ink3)">€${price.toFixed(2)}/gettone</div></div>`).join('')}</div>`
 }
 function buildGettoni(){
   const per=window.TOK_PER||'all'
@@ -1909,17 +2068,18 @@ function buildGettoni(){
   const granted=L.filter(l=>l.type==='accredito').reduce((s,l)=>s+l.qty,0)
   const spent=-L.filter(l=>l.type==='spesa').reduce((s,l)=>s+l.qty,0)
   const wallet=CLIENTS.reduce((s,c)=>s+c.tok,0)
-  const tokVal=(TOK_PACKS[1].price/TOK_PACKS[1].qty)
+  const debt=CLIENTS.filter(c=>!c.famHead).reduce((t,c)=>t+Math.max(0,c.tok)*tokPrice(c),0)
   const rows=tsorted('tok',CLIENTS.map(c=>({id:c.id,name:c.name,tok:c.tok,trName:staffOf(c.trainer)?staffOf(c.trainer).name:'—'})))
   const regRows=tsorted('tokreg',L.map(l=>({...l,age:ledgerAge(l),cname:(CLIENTS.find(x=>x.id===l.client)||{}).name||'—'}))).slice(0,20)
-  C().innerHTML=`<div class="sec-head"><h2>Gestione Gettoni</h2></div>
+  C().innerHTML=`<div class="sec-head"><h2>Gestione Gettoni</h2>
+    <button class="btn btn-accent btn-sm" onclick="openSimulator()">🧮 Simulatore vendita</button></div>
   <div class="tog-row">
     ${[['oggi','Oggi'],['sett','7 giorni'],['mese','Mese'],['all','Da sempre']].map(([k,l])=>`<button class="tog ${per===k?'on':''}" onclick="window.TOK_PER='${k}';buildGettoni()">${l}</button>`).join('')}</div>
   <div class="cards">
     <div class="kpi"><div class="label">Venduti (${perLbl})</div><div class="val">${sold}</div><div class="sub">+ ${granted} accreditati da admin</div></div>
     <div class="kpi"><div class="label">Utilizzati (${perLbl})</div><div class="val">${spent}</div></div>
     <div class="kpi"><div class="label">Nei portafogli clienti</div><div class="val">${wallet}</div><div class="sub">saldo attuale — non dipende dal periodo</div></div>
-    <div class="kpi"><div class="label">Valore residuo (debito)</div><div class="val">€${(wallet*tokVal).toFixed(0)}</div><div class="sub">ricavo differito — gettoni non usati</div></div>
+    <div class="kpi"><div class="label">Valore residuo (debito)</div><div class="val">€${debt.toFixed(0)}</div><div class="sub">ricavo differito — gettoni non usati</div></div>
   </div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
     ${ths('tok','name','Cliente','buildGettoni')}${ths('tok','tok','Disponibili','buildGettoni')}${ths('tok','trName','Trainer','buildGettoni')}<th></th>
@@ -1945,6 +2105,67 @@ function buildGettoni(){
   </tbody></table></div></div>
   <div class="sub-head">Pacchetti a listino</div>${packsHtml()}`
 }
+function commerceCard(c){
+  const w=walletOf(c),lv=levelOf(c),price=tokPrice(c),base=LEVELS[0].p
+  const rs=rateStatus(c)
+  const fam=c.family?CLIENTS.filter(x=>x.family===c.family):[c]
+  const isHead=!c.famHead&&c.family
+  const mship=w.mship
+  const mexp=mship&&new Date(mship.until)<new Date()
+  const packs=activePacks(c)
+  const famRows=isHead&&fam.length>1?fam.map(m=>{
+    const spent=-LEDGER.filter(l=>l.client===m.id&&l.qty<0).reduce((t,l)=>t+l.qty,0)
+    return {m,spent}}).sort((a,b)=>b.spent-a.spent):null
+  const famTot=famRows?Math.max(1,famRows.reduce((t,r)=>t+r.spent,0)):1
+  return `<div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:10px">
+    <div style="display:flex;gap:20px;align-items:baseline;flex-wrap:wrap">
+      <div><div style="font-size:22px;font-weight:700;color:${w.tok<0?'var(--danger)':'var(--accent)'}">${w.tok} 🪙</div>
+        <div style="font-size:11px;color:var(--ink3)">${c.famHead?'borsellino famiglia':'disponibili'}${w.tok<0?' · SOTTOSOGLIA':''}</div></div>
+      <div><span class="pill pill-accent">Livello ${lv.k}</span>
+        <div style="font-size:11px;color:var(--ink3);margin-top:3px">gettone: ${price<base?`<s>€${base.toFixed(2)}</s> `:''}<b style="color:var(--ink)">€${price.toFixed(2)}</b> · cumulati ${w.cumTok||0}</div></div>
+      ${mship?`<div><span class="pill ${mexp?'pill-danger':'pill-ok'}">${MEMBERSHIP[mship.type].label}</span>
+        <div style="font-size:11px;color:${mexp?'var(--danger)':'var(--ink3)'};margin-top:3px">${mexp?'SCADUTA':'scade'} ${mship.until}${(ROLE==='admin'||ROLE==='reception')&&mexp?` <a style="color:var(--accent);cursor:pointer" onclick="renewMship('${c.id}')">rinnova €${MEMBERSHIP[mship.type].renew}</a>`:''}</div></div>`:''}
+      <div style="margin-left:auto;align-self:center"><button class="btn btn-outline btn-sm" onclick="openTokLog('${c.id}')">Log</button>
+        ${ROLE!=='client'&&!c.famHead?`<button class="btn btn-outline btn-sm" onclick="openSellPack('${c.id}')">+ Pacchetto</button>`:''}</div></div>
+    ${rs&&rs.over>0?`<div style="background:rgba(232,64,64,.12);border:1px solid rgba(232,64,64,.4);border-radius:8px;padding:8px 11px;font-size:12.5px;margin-top:10px">⚠️ <b>Over rate</b>: ha usato ${rs.used}🪙 ma le rate pagate (${rs.ratePaid}/${rs.rateTot}) ne coprono ${rs.paidQuota}. In over di <b>${rs.over}🪙</b> → far anticipare la rata (€${rs.rateAmt}, scad. ${rs.nextDue}) o fermare le prenotazioni.</div>`
+      :rs?`<div style="font-size:11.5px;color:var(--ink3);margin-top:8px">Piano rate: ${rs.ratePaid}/${rs.rateTot} pagate · prossima €${rs.rateAmt} il ${rs.nextDue} · quota coperta ${rs.paidQuota}🪙 (usati ${rs.used})</div>`:''}
+    ${packs.length?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:10.5px;color:var(--ink3);margin-bottom:5px">PACCHETTI ATTIVI (mono-servizio)</div>
+      ${packs.map(pk=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0"><span>${esc(pk.label)}</span><span><b style="color:var(--accent)">${pk.left}</b>/${pk.tot} · scade ${pk.exp}</span></div>`).join('')}</div>`:''}
+    ${famRows?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:10.5px;color:var(--ink3);margin-bottom:5px">👪 FAMIGLIA — consumo del borsellino condiviso</div>
+      ${famRows.map(r=>`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${esc(r.m.name)}${r.m.id===c.id?' (capofamiglia)':''}</span><b>🪙${r.spent}</b></div>
+        <div class="pbar" style="margin-top:2px"><i style="width:${Math.round(r.spent/famTot*100)}%"></i></div></div>`).join('')}</div>`
+      :c.famHead?`<div style="font-size:11.5px;color:var(--ink3);margin-top:8px">👪 Fa parte della famiglia di ${esc(walletOf(c).name)} — usa il borsellino condiviso.</div>`:''}
+  </div>`
+}
+function renewMship(cid){const c=CLIENTS.find(x=>x.id===cid),w=walletOf(c),m=w.mship
+  const price=MEMBERSHIP[m.type].renew
+  const num=addPayment(c.name,`Rinnovo iscrizione ${MEMBERSHIP[m.type].label}`,'Iscrizioni',price,'POS','22')
+  const d=new Date();d.setFullYear(d.getFullYear()+1);m.until=d.toISOString().slice(0,10)
+  audit(`Rinnovata iscrizione di ${c.name} fino al ${m.until} (${num})`)
+  toast('Iscrizione rinnovata fino al '+m.until);closeModal();openClient(cid);saveState()
+}
+function openSellPack(cid){
+  const c=CLIENTS.find(x=>x.id===cid)
+  showModal(`<h2>Vendi pacchetto — ${esc(c.name)}</h2>
+    <div style="font-size:12px;color:var(--ink3);margin-bottom:10px">Pacchetti mono-servizio (validità 12 mesi): si scalano PRIMA dei gettoni, solo sul loro servizio.</div>
+    <div class="form-row"><label>Pacchetto (listino ufficiale)</label><select id="sp-p">${PACKDEFS.map(d=>`<option value="${d.id}">${esc(d.label)} — €${d.price}</option>`).join('')}</select></div>
+    <div class="form-row"><label>Metodo</label><select id="sp-m"><option>POS</option><option>contanti</option><option>bonifico</option></select></div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="openClient('${cid}')">Annulla</button>
+      <button class="btn btn-accent" onclick="doSellPack('${cid}')">Vendi</button></div>`)
+}
+function doSellPack(cid){
+  const c=CLIENTS.find(x=>x.id===cid),w=walletOf(c)
+  const d=PACKDEFS.find(x=>x.id===document.getElementById('sp-p').value)
+  const m=document.getElementById('sp-m').value
+  const exp=new Date();exp.setFullYear(exp.getFullYear()+1)
+  w.packs=w.packs||[];w.packs.push({id:'cpk'+Date.now(),svc:d.svc,label:d.label,left:d.n,tot:d.n,exp:exp.toISOString().slice(0,10)})
+  const num=addPayment(c.name,d.label,'Pacchetti',d.price,m,'22')
+  ledger(c,'pacchetto',0,`Acquistato «${d.label}» — €${d.price} (${num})`)
+  audit(`Venduto pacchetto «${d.label}» a ${c.name} — €${d.price}`)
+  toast('Pacchetto attivato ✓');closeModal();openClient(cid);saveState()
+}
 function openTokLog(cid){
   const c=CLIENTS.find(x=>x.id===cid)
   const my=LEDGER.filter(l=>l.client===cid)
@@ -1961,9 +2182,14 @@ function openTokLog(cid){
 function buildMyTok(){
   const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT)
   const my=LEDGER.filter(l=>l.client===CURRENT_CLIENT)
-  C().innerHTML=`<div class="sec-head"><h2>I miei gettoni</h2></div>
+  const w=walletOf(c),lv=levelOf(c),nl=nextLevel(c)
+  const myPacks=activePacks(c)
+  C().innerHTML=`<div class="sec-head"><h2>I miei gettoni</h2><span class="pill pill-accent">Livello ${lv.k}</span></div>
+  ${nl?`<div class="panel" style="margin-bottom:14px;padding:12px 16px"><div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px"><span>Verso il livello <b>${nl.k}</b> (gettone a €${nl.p.toFixed(2)} + ${esc(nl.gift)})</span><b>${w.cumTok||0}/${nl.min}🪙</b></div>
+    <div class="pbar"><i style="width:${Math.min(100,Math.round((w.cumTok||0)/nl.min*100))}%"></i></div></div>`:''}
+  ${myPacks.length?`<div class="sub-head">I miei pacchetti</div>${myPacks.map(pk=>`<div class="book-card"><div><div class="bl">${esc(pk.label)}</div><div class="bm">scade ${pk.exp} · si usa prima dei gettoni</div></div><span class="pill pill-accent">${pk.left}/${pk.tot}</span></div>`).join('')}`:''}
   <div class="cards">
-    <div class="kpi"><div class="label">Disponibili</div><div class="val" style="color:var(--accent)">${c.tok}</div></div>
+    <div class="kpi"><div class="label">Disponibili${c.famHead?' (famiglia)':''}</div><div class="val" style="color:var(--accent)">${w.tok}</div></div>
     <div class="kpi"><div class="label">Acquistati in totale</div><div class="val">${my.filter(l=>l.type==='acquisto').reduce((s,l)=>s+l.qty,0)}</div></div>
     <div class="kpi"><div class="label">Spesi in totale</div><div class="val">${-my.filter(l=>l.qty<0).reduce((s,l)=>s+l.qty,0)}</div></div></div>
   <div class="sub-head">Acquista altri gettoni</div>${packsHtml()}
@@ -2002,47 +2228,93 @@ function doAssign(cid){
   closeModal();reRender()
 }
 /* checkout gettoni — cid fissato nel flusso, niente stato globale */
-function openCheckout(pid,cid){
-  cid=cid||CURRENT_CLIENT
-  const p=TOK_PACKS.find(x=>x.id===pid)
-  const c=CLIENTS.find(x=>x.id===cid)
-  const iva=(p.price*p.vat/100).toFixed(2), tot=(p.price*(1+p.vat/100)).toFixed(2)
-  const other=TOK_PACKS.filter(x=>x.id!==pid).map(x=>`<option value="${x.id}">${x.label} — €${x.price}</option>`).join('')
+/* Simulatore vendita: frequenza desiderata → gettoni, soglia, €/mese (addio calcolatrice+foglietto) */
+function openSimulator(){
+  const simSvcs=['s1','s2','s3','s5','s4','s13'].map(id=>SVCS.find(x=>x.id===id)).filter(Boolean)
+  showModal(`<h2 style="margin-bottom:2px">🧮 Simulatore vendita</h2>
+  <div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Componi la settimana tipo del cliente → gettoni necessari, prezzo al suo livello, spesa mensile equivalente.</div>
+  <div class="form-row"><label>Cliente</label><select class="selin" id="sim-c" onchange="calcSim()" style="width:100%">
+    <option value="">Nuovo cliente (livello Start — €12/gettone)</option>
+    ${CLIENTS.filter(c=>!c.famHead).map(c=>`<option value="${c.id}">${esc(c.name)} — livello ${levelOf(c).k} (€${tokPrice(c).toFixed(2)})</option>`).join('')}</select></div>
+  <div style="margin:10px 0 4px;font-size:12px;font-weight:600;color:var(--ink2)">Volte a settimana:</div>
+  ${simSvcs.map(sv=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:13px">${esc(sv.name)} <span style="color:var(--ink3);font-size:11px">${sv.tok}🪙</span></span>
+    <input type="number" min="0" max="7" value="0" data-tok="${sv.tok}" class="sim-q selin" style="width:64px" oninput="calcSim()"></div>`).join('')}
+  <div class="form-row" style="margin-top:10px"><label>Per quanti mesi</label><select class="selin" id="sim-m" onchange="calcSim()" style="width:100%">
+    ${[1,3,6,12].map(m=>`<option value="${m}" ${m===3?'selected':''}>${m} mes${m===1?'e':'i'}</option>`).join('')}</select></div>
+  <div id="sim-out" style="margin-top:12px"></div>`)
+  calcSim()
+}
+function calcSim(){
+  const out=document.getElementById('sim-out');if(!out)return
+  const tokW=[...document.querySelectorAll('.sim-q')].reduce((t,i)=>t+(+i.value||0)*(+i.dataset.tok),0)
+  const months=+document.getElementById('sim-m').value
+  const c=CLIENTS.find(x=>x.id===document.getElementById('sim-c').value)
+  const cum0=c?(walletOf(c).cumTok||0):0
+  if(!tokW){out.innerHTML='<div style="font-size:12.5px;color:var(--ink3)">Imposta almeno una frequenza.</div>';return}
+  const need=Math.ceil(tokW*4.33*months)
+  const lvAfter=[...LEVELS].reverse().find(l=>cum0+need>=l.min)||LEVELS[0]
+  const tot=need*lvAfter.p, monthly=tot/months
+  const nxt=LEVELS.find(l=>l.min>cum0+need)
+  let upsell=''
+  if(nxt&&(nxt.min-cum0-need)<=need*0.25){
+    const q2=nxt.min-cum0, t2=q2*nxt.p
+    upsell=`<div style="margin-top:8px;padding:9px 11px;border:1px dashed var(--accent);border-radius:9px;font-size:12.5px">
+      💡 <b>Upsell:</b> con <b>${q2} gettoni</b> (+${q2-need}) scatta il livello <b>${nxt.k}</b> a €${nxt.p.toFixed(2)}/gettone → €${t2.toFixed(0)} totali${t2<tot?` — <b style="color:var(--ok)">risparmia €${(tot-t2).toFixed(0)}</b>`:` (gettoni in più a prezzo migliore, restano validi)`}.</div>`
+  }
+  out.innerHTML=`<div class="panel" style="background:var(--ad)">
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>Gettoni/settimana</span><b>${tokW}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>Gettoni per ${months} mes${months===1?'e':'i'}</span><b>${need} 🪙</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>Livello all'acquisto</span><b>${lvAfter.k} — €${lvAfter.p.toFixed(2)}/gettone</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:15px;padding:6px 0;border-top:1px solid var(--border2);margin-top:4px"><span><b>Totale</b></span><b style="color:var(--accent)">€${tot.toFixed(0)}</b></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span>«Ti costa come»</span><b>€${monthly.toFixed(0)}/mese</b></div></div>${upsell}
+  <button class="btn btn-accent" style="width:100%;justify-content:center;margin-top:10px" onclick="closeModal();openCheckout(${need},'${c?c.id:'c1'}')">Procedi alla ricarica di ${need} gettoni →</button>`
+}
+function openCheckout(qty,cid){
+  qty=+qty||10;cid=cid||CURRENT_CLIENT
+  const c=CLIENTS.find(x=>x.id===cid),w=walletOf(c)
+  const lv=levelOf(c),price=tokPrice(c),base=LEVELS[0].p
+  const tot=(qty*price).toFixed(2)
+  const after=(w.cumTok||0)+qty
+  const lvAfter=LEVELS.filter(l=>after>=l.min).pop()
   const payOpts=ROLE==='client'?`<div class="co-card"><div class="cc-ic">VISA</div>
       <div style="flex:1"><div class="cc-n">Carta salvata •••• 4242</div><div class="cc-s">Scad. 08/28 — ${esc(c.name)}</div></div>
       <input type="radio" checked style="accent-color:var(--accent)"></div>`
     :`<div class="form-row"><label>Metodo di pagamento</label><select id="co-m"><option>POS</option><option>contanti</option><option>bonifico</option></select></div>`
-  showModal(`<h2>Checkout</h2>
-    ${ROLE==='client'?`<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Intestato a <b style="color:var(--ink)">${esc(c.name)}</b></div>`
-    :`<div class="form-row"><label>Intestato a</label><select id="co-cli">${CLIENTS.filter(x=>x.status==='attivo').map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`}
-    <div class="form-row"><label>Pacchetto</label><select id="co-pack" onchange="openCheckout(this.value,'${cid}')">
-      <option value="${p.id}" selected>${p.label} — €${p.price}</option>${other}</select></div>
+  showModal(`<h2>Ricarica gettoni</h2>
+    ${ROLE==='client'?`<div style="font-size:12px;color:var(--ink3);margin-bottom:12px">Intestato a <b style="color:var(--ink)">${esc(c.name)}</b>${c.famHead?' · borsellino famiglia':''}</div>`
+    :`<div class="form-row"><label>Intestato a</label><select id="co-cli" onchange="openCheckout(${qty},this.value)">${CLIENTS.filter(x=>x.status==='attivo'&&!x.famHead).map(x=>`<option value="${x.id}" ${x.id===cid?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`}
+    <div class="form-row"><label>Quantità</label><select id="co-q" onchange="openCheckout(this.value,'${cid}')">${TOK_QTY.map(q=>`<option value="${q}" ${q===qty?'selected':''}>${q} gettoni</option>`).join('')}</select></div>
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:6px">
-      ${ROLE==='client'
-       ?`<div class="co-tot"><span>${p.qty} gettoni</span><span style="color:var(--accent)">€${tot}</span></div><div style="font-size:11px;color:var(--ink3);text-align:right;margin-top:2px">IVA inclusa</div>`
-       :`<div class="co-line"><span>${p.qty} gettoni</span><span>€${p.price.toFixed(2)}</span></div>
-      <div class="co-line" style="color:var(--ink3)"><span>IVA ${p.vat}%</span><span>€${iva}</span></div>
-      <div class="co-tot"><span>Totale</span><span style="color:var(--accent)">€${tot}</span></div>`}</div>
+      <div class="co-line"><span>Livello <b>${lv.k}</b> — prezzo gettone</span><span>${price<base?`<s style="color:var(--ink3)">€${base.toFixed(2)}</s> `:''}<b>€${price.toFixed(2)}</b></span></div>
+      <div class="co-tot"><span>${qty} 🪙</span><span style="color:var(--accent)">€${tot}</span></div>
+      <div style="font-size:11px;color:var(--ink3);text-align:right;margin-top:2px">IVA inclusa · i gettoni non scadono</div></div>
+    ${lvAfter.k!==lv.k?`<div style="background:var(--ad);border:1px solid var(--accent-dim2);border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:10px">🎉 Con questa ricarica passi al livello <b>${lvAfter.k}</b>: prossimi gettoni a <b>€${lvAfter.p.toFixed(2)}</b> + in omaggio ${esc(lvAfter.gift)}</div>`:''}
     ${payOpts}
-    <div style="font-size:11px;color:var(--ink3);margin-bottom:4px">🔒 Pagamento simulato — nessun addebito reale. In produzione: POS/Stripe + fatt. elettronica SDI.</div>
+    <div style="font-size:11px;color:var(--ink3);margin-bottom:4px">🔒 Pagamento simulato. In produzione: POS/Stripe + fatt. elettronica SDI.</div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal()">Annulla</button>
-      <button class="btn btn-accent" id="payBtn" onclick="payNow('${p.id}','${cid}')">Paga ora €${tot}</button></div>`)
+      <button class="btn btn-accent" id="payBtn" onclick="payNow(${qty},'${cid}')">Paga ora €${tot}</button></div>`)
 }
 function payNow(pid,cid){const b=document.getElementById('payBtn');if(b){if(b.disabled)return;b.textContent='Elaborazione…';b.disabled=true}
   cid=document.getElementById('co-cli')?.value||cid
   const method=document.getElementById('co-m')?.value||'carta online'
   setTimeout(()=>finishPay(pid,cid,method),750)}
-function finishPay(pid,cid,method){
-  const p=TOK_PACKS.find(x=>x.id===pid), c=CLIENTS.find(x=>x.id===cid)
-  const tot=+(p.price*(1+p.vat/100)).toFixed(2)
-  c.tok+=p.qty
-  const num=addPayment(c.name,`Pacchetto ${p.qty} gettoni`,'Gettoni',tot,method,'22')
-  ledger(c,'acquisto',p.qty,`Pacchetto ${p.qty} gettoni — ric. ${num}`)
-  notify(['admin'],'🪙','Vendita gettoni',`${c.name} — ${p.qty} gettoni (€${tot.toFixed(2)})`)
+function finishPay(qty,cid,method){
+  qty=+qty
+  const c=CLIENTS.find(x=>x.id===cid),w=walletOf(c)
+  const lvBefore=levelOf(c),price=tokPrice(c)
+  const tot=+(qty*price).toFixed(2)
+  w.tok=+(w.tok+qty).toFixed(1);w.cumTok=(w.cumTok||0)+qty
+  const lvAfter=levelOf(c)
+  const num=addPayment(c.name,`Ricarica ${qty} gettoni (liv. ${lvBefore.k} — €${price.toFixed(2)}/🪙)`,'Gettoni',tot,method,'22')
+  ledger(c,'acquisto',qty,`Ricarica ${qty} gettoni — ric. ${num}`)
+  notify(['admin'],'🪙','Vendita gettoni',`${c.name} — ${qty} 🪙 (€${tot.toFixed(2)})`)
+  if(lvAfter.k!==lvBefore.k){audit(`${c.name} è salito al livello ${lvAfter.k}`);notify(['reception','admin'],'🏆','Livello raggiunto',`${c.name} → ${lvAfter.k}: consegnare omaggio (${lvAfter.gift})`)}
   showModal(`<div class="pay-ok"><div class="em">✓</div>
     <h2 style="margin:8px 0">Pagamento riuscito</h2>
-    <p style="color:var(--ink2);font-size:13px">+${p.qty} gettoni accreditati a ${esc(c.name)} · ricevuta ${num}</p>
-    <div style="margin:14px 0;font-size:13px">Nuovo saldo: <b style="color:var(--accent);font-size:20px">${c.tok}</b> gettoni</div></div>
+    <p style="color:var(--ink2);font-size:13px">+${qty} 🪙 a ${esc(c.name)} · ricevuta ${num}</p>
+    ${lvAfter.k!==lvBefore.k?`<div style="margin:8px 0"><span class="pill pill-accent">🏆 Nuovo livello: ${lvAfter.k}</span></div>`:''}
+    <div style="margin:12px 0;font-size:13px">Nuovo saldo: <b style="color:var(--accent);font-size:20px">${w.tok}</b> 🪙</div></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="printReceipt('${num}')">🖨 Ricevuta</button>
     <button class="btn btn-accent" style="flex:1;justify-content:center" onclick="closeModal();reRender()">Fatto</button></div>`)
   saveState()
@@ -2125,14 +2397,28 @@ function checkoutShop(){
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:14px;margin-bottom:12px">
       ${CART.map(i=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>${esc(i.name)} ×${i.qty}</span><span>€${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}
       <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:6px;padding-top:8px"><b>Totale (${m})</b><b style="color:var(--accent);font-size:18px">€${tot.toFixed(2)}</b></div></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <label style="font-size:12px;color:var(--ink3)">Sconto %</label>
+      <input type="number" id="cs-disc" min="0" max="100" value="0" style="width:70px" class="combo-in" onchange="updShopTot()">
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('cs-disc').value=100;updShopTot()">🎁 Omaggio</button>
+      <label class="bigchk" style="margin:0;padding:8px 10px;font-size:12.5px"><input type="checkbox" id="cs-credit" style="width:18px;height:18px"><span>Non pagato — a credito</span></label></div>
     <label class="bigchk"><input type="checkbox" id="cs-sc" onchange="document.getElementById('cs-go').disabled=!this.checked">
       <span>🧾 Ho consegnato lo scontrino al cliente</span></label>
     <div class="modal-foot"><button class="btn btn-accent" onclick="closeModal()">Annulla</button>
       <button class="btn btn-outline" id="cs-go" disabled onclick="doCheckoutShop('${m}')">Conferma incasso</button></div>`)
 }
+function updShopTot(){const d=+document.getElementById('cs-disc').value||0
+  const base=CART.reduce((s,i)=>s+i.price*i.qty,0)
+  const els=[...document.querySelectorAll('#modalBox .co-tot b')];const el=els.pop();if(el)el.textContent='€'+(base*(1-d/100)).toFixed(2)}
 function doCheckoutShop(m){
-  const tot=CART.reduce((s,i)=>s+i.price*i.qty,0)
-  const num=addPayment('Bar',CART.map(i=>i.name+'×'+i.qty).join(', '),'Bar/Shop',tot,m,'22')
+  const disc=+document.getElementById('cs-disc')?.value||0
+  const credit=document.getElementById('cs-credit')?.checked
+  const base=CART.reduce((s,i)=>s+i.price*i.qty,0)
+  const tot=+(base*(1-disc/100)).toFixed(2)
+  const descTxt=CART.map(i=>i.name+'×'+i.qty).join(', ')+(disc>=100?' (OMAGGIO)':disc>0?` (sconto ${disc}%)`:'')
+  if(disc>0)audit(`Bar: ${disc>=100?'OMAGGIO':'sconto '+disc+'%'} su «${descTxt}» da ${CURRENT_USER.name}`)
+  if(credit)audit(`Bar: vendita A CREDITO €${tot.toFixed(2)} («${descTxt}»)`)
+  const num=addPayment('Bar',descTxt,'Bar/Shop',tot,m,'22',credit?'attesa':undefined)
   showModal(`<div class="pay-ok"><div class="em">✓</div><h2 style="margin:8px 0">Incasso registrato</h2>
     <p>Totale: <strong style="color:var(--accent)">€${tot.toFixed(2)}</strong> (${m}) · ${num}</p></div>
     <div class="modal-foot"><button class="btn btn-outline" onclick="printReceipt('${num}')">🖨 Ristampa scontrino</button>
@@ -2152,9 +2438,12 @@ function buildPagamenti(){
   <div class="sec-head"><h2>Pagamenti & Fatturazione</h2>
     <div style="display:flex;gap:8px">
       <button class="btn btn-outline" onclick="exportCSV('pagamenti')">⇩ Export CSV</button>
-      <button class="btn btn-accent" onclick="openNewPayment()">+ Incasso</button></div></div>
+      ${ROLE!=='fiscale'?`<button class="btn btn-accent" onclick="openNewPayment()">+ Incasso</button>`:''}</div></div>
+  ${ROLE==='fiscale'?`<div class="panel" style="margin-bottom:14px;border-left:3px solid var(--accent)"><b style="font-size:13px">🧾 Accesso commercialista</b><div style="font-size:12.5px;color:var(--ink2);margin-top:4px">Vista in sola lettura: registro incassi, IVA (22% / esente art.10), numerazione ricevute e prima nota. Scarica il CSV del periodo che ti serve — niente più fogli inviati a mano.</div></div>`:''}
   <div class="cards">
     <div class="kpi"><div class="label">Incassato (mese, estratto)</div><div class="val">€${inc.toFixed(0)}</div><div class="sub">movimenti dal 1 lug</div></div>
+    <div class="kpi"><div class="label">Rate in arrivo (mese)</div><div class="val" style="color:var(--accent)">€${CLIENTS.filter(c=>c.ratePlan&&c.ratePlan.ratePaid<c.ratePlan.rateTot).reduce((t,c)=>t+c.ratePlan.rateAmt,0)}</div>
+      <div class="sub">${CLIENTS.filter(c=>c.ratePlan&&c.ratePlan.ratePaid<c.ratePlan.rateTot).map(c=>c.name.split(' ')[0]+' €'+c.ratePlan.rateAmt+' ('+c.ratePlan.nextDue.slice(5)+')').join(' · ')||'nessuna'}</div></div>
     <div class="kpi"><div class="label">Crediti in attesa</div><div class="val" style="color:var(--warn)">€${attTot.toFixed(0)}</div><div class="sub">${att.length} posizioni aperte</div></div>
     <div class="kpi"><div class="label">Ricevute emesse</div><div class="val">${PAYMENTS.length}</div><div class="sub">numerazione R-2026-…</div></div>
   </div>
@@ -2164,7 +2453,7 @@ function buildPagamenti(){
     <button class="btn btn-accent btn-sm" onclick="incassaPay('${p.id}')">✓ Incassa</button></div></div>`).join('')}`:''}
   <div class="sub-head">Prima nota di oggi</div>
   <div class="panel">${todayPays.length?Object.entries(byM).map(([m,v])=>`<div class="co-line"><span>${m}</span><b>€${v.toFixed(2)}</b></div>`).join('')+`<div class="co-tot"><span>Totale cassa</span><span style="color:var(--accent)">€${todayPays.reduce((s,p)=>s+p.amount,0).toFixed(2)}</span></div>
-    <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="audit('Chiusura cassa giornaliera — €'+${todayPays.reduce((s,p)=>s+p.amount,0).toFixed(2)});toast('Cassa chiusa e registrata nell\\'audit log')">🔒 Chiudi cassa</button>`
+    ${ROLE!=='fiscale'?`<button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="audit('Chiusura cassa giornaliera — €'+${todayPays.reduce((s,p)=>s+p.amount,0).toFixed(2)});toast('Cassa chiusa e registrata nell\\'audit log')">🔒 Chiudi cassa</button>`:''}`
     :'<div style="color:var(--ink3);font-size:13px">Nessun incasso registrato oggi.</div>'}</div>
   <div class="sub-head">Registro movimenti</div>
   <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
@@ -2470,7 +2759,7 @@ function buildBookSlots(){
 }
 function askJoinClass(id){
   const e=SESSIONS.find(x=>x.id===id);const svc=svcOf(e.svc);const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT)
-  if(c.tok<svc.tok){noTokModal(svc,c);return}
+  if(!activePacks(c).some(p=>p.svc===svc.id)&&walletOf(c).tok<svc.tok){noTokModal(svc,c);return}
   showModal(`<h2>Iscriviti — ${esc(svc.name)}</h2>
     <p style="margin-bottom:12px;color:var(--ink2);font-size:13px">${esc(staffOf(e.staff).name)} · ${dayLbl(e.day)} ${fmt(e.start)} · posto ${e.roster.length+1}/${svc.max}</p>
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:12px;font-size:13px">
@@ -2482,9 +2771,9 @@ function doJoinClass(id){
   const e=SESSIONS.find(x=>x.id===id);const svc=svcOf(e.svc);const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT)
   if(c.status!=='attivo'){toast('Il tuo abbonamento è sospeso: contatta la reception per riattivarlo.','err');return}
   if(e.roster.length>=svc.max){toast('Classe appena riempita — puoi entrare in lista d’attesa','warn');openBookingModal();return}
-  if(c.tok<svc.tok){noTokModal(svc,c);return}
+  if(!activePacks(c).some(p=>p.svc===svc.id)&&walletOf(c).tok<svc.tok){noTokModal(svc,c);return}
   const busyJ=clientBusy(c,e.day,e.start,e.dur);if(busyJ.length){toast(busyJ[0],'err');return}
-  spendTok(c,svc.tok,`${svc.name} — ${dayLbl(e.day)} ${fmt(e.start)}`)
+  chargeFor(c,svc,`${svc.name} — ${dayLbl(e.day)} ${fmt(e.start)}`)
   e.roster.push(c.name)
   BOOKINGS.unshift({id:'b'+Date.now(),client:c.id,staff:e.staff,svc:svc.id,day:e.day,start:e.start,dur:e.dur,date:dayLbl(e.day),status:'confermata',sessId:e.id})
   audit(`${c.name} iscritto a ${svc.name} ${dayLbl(e.day)}`)
@@ -2495,7 +2784,7 @@ function joinWaitlist(id){
   const e=SESSIONS.find(x=>x.id===id);const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT)
   if(c.status!=='attivo'){toast('Il tuo abbonamento è sospeso: contatta la reception.','err');return}
   const svcW=svcOf(e.svc)
-  if(c.tok<svcW.tok){noTokModal(svcW,c);return}
+  if(!activePacks(c).some(p=>p.svc===svcW.id)&&walletOf(c).tok<svcW.tok){noTokModal(svcW,c);return}
   e.waitlist=e.waitlist||[]
   if(e.waitlist.includes(c.name)){toast('Sei già in lista d’attesa.','warn');return}
   e.waitlist.push(c.name)
@@ -2511,7 +2800,7 @@ function noTokModal(svc,c){
 function doBook(stId,day,h){
   const c=CLIENTS.find(x=>x.id===CURRENT_CLIENT), sv=svcOf(document.getElementById('bk-sv').value)
   if(c.status!=='attivo'){toast('Il tuo abbonamento è sospeso: contatta la reception per riattivarlo.','err');return}
-  if(c.tok<sv.tok){noTokModal(sv,c);return}
+  if(!activePacks(c).some(p=>p.svc===sv.id)&&walletOf(c).tok<sv.tok){noTokModal(sv,c);return}
   showModal(`<h2>Conferma prenotazione</h2>
     <p style="margin-bottom:12px">${esc(sv.name)}<br><span style="color:var(--ink3);font-size:13px">${esc(staffOf(stId).name)} · ${dayLbl(day)} ${h}:00 · ${sv.dur} min</span></p>
     <div style="background:var(--card2);border:1px solid var(--border2);border-radius:var(--r);padding:12px;margin-bottom:12px;font-size:13px">
@@ -2524,7 +2813,7 @@ function confirmBook(stId,day,h,svId){
   const errs=allChecks(stId,svId,day,h,sv.dur/60)
   errs.push(...clientBusy(c,day,h,sv.dur/60))
   if(errs.length){toast('Impossibile: '+errs[0],'err');openBookingModal();return}
-  spendTok(c,sv.tok,`${sv.name} — ${dayLbl(day)} ${h}:00`)
+  chargeFor(c,sv,`${sv.name} — ${dayLbl(day)} ${h}:00`)
   const bid='b'+Date.now()
   BOOKINGS.unshift({id:bid,client:c.id,staff:stId,svc:svId,day,start:h,dur:sv.dur/60,date:dayLbl(day),status:'confermata'})
   SESSIONS.push({id:'s_'+bid,bk:bid,staff:stId,svc:svId,client:c.name,clientId:c.id,day,start:h,dur:sv.dur/60,status:'prog'})
@@ -2653,7 +2942,7 @@ function buildWorkout(){
     :`<div class="panel"><div class="rest-card"><div class="em">💪</div><div style="font-size:16px;font-weight:700;margin-top:6px">Oggi è Rest day</div><div style="color:var(--ink3);font-size:13px;margin-top:4px">Recupero. Sotto trovi la programmazione della settimana.</div></div></div>`
   const week=DAYS.map(dd=>{const e=act.days[dd]||[]
     return`<div class="panel" style="${dd===d?'border-color:var(--accent-dim2)':''}"><h3 style="font-size:13px">${dd}${dd===d?' <span class="pill pill-accent" style="font-size:9px">oggi</span>':''}</h3>
-      ${e.length?e.map(x=>`<div class="ex-row"><span>${esc(x.ex)}</span><span class="sr">${x.s}×${x.r}</span></div>`).join(''):'<div style="color:var(--ink3);font-size:12px">Riposo</div>'}</div>`}).join('')
+      ${e.length?e.map(x=>`<div class="ex-row"><span>${esc(x.ex)} <span style="color:var(--accent);font-size:10px;cursor:pointer" data-ex="${esc(x.ex)}" onclick="event.stopPropagation();toast('▶ Video di '+this.dataset.ex+' (demo — in produzione: libreria video del centro)')">▶</span></span><span class="sr">${x.s}×${x.r}</span></div>`).join(''):'<div style="color:var(--ink3);font-size:12px">Riposo</div>'}</div>`}).join('')
   C().innerHTML=`
   <div class="sec-head"><h2>Allenamento</h2><span class="pill pill-accent">${esc(act.title)}${act.by?' · '+esc(act.by):''}</span></div>
   ${todayCard}
@@ -2670,7 +2959,7 @@ function viewPlan(kind,id){
       <div class="modal-foot"><button class="btn btn-accent" onclick="closeModal()">Chiudi</button></div>`)
   }else{const w=WORKOUTS.find(x=>x.id===id), ds=Object.entries(w.days).filter(([d,e])=>e.length)
     showModal(`<h2>${esc(w.title)}</h2><div style="font-size:12px;color:var(--ink3);margin-bottom:12px">${w.date}</div>
-      ${ds.length?ds.map(([d,ex])=>`<div style="font-size:12px;font-weight:600;color:var(--ink2);margin:10px 0 4px">${d}</div>${ex.map(x=>`<div class="ex-row"><span>${esc(x.ex)}</span><span class="sr">${x.s}×${x.r}</span></div>`).join('')}`).join(''):'<div style="color:var(--ink3);font-size:13px">Dettaglio non archiviato.</div>'}
+      ${ds.length?ds.map(([d,ex])=>`<div style="font-size:12px;font-weight:600;color:var(--ink2);margin:10px 0 4px">${d}</div>${ex.map(x=>`<div class="ex-row"><span>${esc(x.ex)} <span style="color:var(--accent);font-size:10px;cursor:pointer" data-ex="${esc(x.ex)}" onclick="event.stopPropagation();toast('▶ Video di '+this.dataset.ex+' (demo — in produzione: libreria video del centro)')">▶</span></span><span class="sr">${x.s}×${x.r}</span></div>`).join('')}`).join(''):'<div style="color:var(--ink3);font-size:13px">Dettaglio non archiviato.</div>'}
       <div class="modal-foot"><button class="btn btn-accent" onclick="closeModal()">Chiudi</button></div>`)
   }
 }
@@ -2706,7 +2995,7 @@ function workoutDashPanel(c,wp){
     <div class="cards" style="margin-bottom:6px">
       <div class="kpi"><div class="label">Esercizi</div><div class="val">${doneEx}/${ex.length}</div></div>
       <div class="kpi"><div class="label">Serie</div><div class="val">${ex.reduce((t,x,i)=>t+Math.min(log.sets[i]||0,x.s),0)}/${ex.reduce((t,x)=>t+x.s,0)}</div></div></div>
-    ${ex.slice(0,3).map(x=>`<div class="ex-row"><span>${esc(x.ex)}</span><span class="sr">${x.s}×${x.r}</span></div>`).join('')}
+    ${ex.slice(0,3).map(x=>`<div class="ex-row"><span>${esc(x.ex)} <span style="color:var(--accent);font-size:10px;cursor:pointer" data-ex="${esc(x.ex)}" onclick="event.stopPropagation();toast('▶ Video di '+this.dataset.ex+' (demo — in produzione: libreria video del centro)')">▶</span></span><span class="sr">${x.s}×${x.r}</span></div>`).join('')}
     <div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-accent" style="flex:1;justify-content:center" onclick="openAssist()">▶ Assistente</button>
       <button class="btn btn-outline" onclick="go('workout')">Scheda</button></div></div>`
 }
@@ -2781,7 +3070,10 @@ function buildRecap(){
     '<b>Motore anti-conflitti</b>: mai doppie prenotazioni (trainer, cliente o attrezzatura come l’InBody)',
     'Classi con <b>posti reali</b> e lista d’attesa con promozione automatica',
     'Navigazione per giorno e per settimana, filtri per servizio, trainer ordinabili',
-    'Blocchi personali del trainer (non prenotabile)'])}
+    'Blocchi personali del trainer (non prenotabile)',
+    '<b>Prenotazioni ricorrenti</b> («Giorgio tutti i lunedì alle 7») con gettoni scalati per tutte le date',
+    '<b>Note sulla prenotazione</b>: interna per il trainer + visibile al cliente (con notifica)',
+    '<b>Turni per-servizio</b>: es. il martedì Emanuele fa solo visite nutrizionali — la reception lo vede subito'])}
   ${S('📱','App del cliente',[
     'Prenota da solo con i gettoni — senza passare dalla reception',
     'Dashboard: prossima sessione, risultati raggiunti, diario pasti e acqua',
@@ -2796,20 +3088,33 @@ function buildRecap(){
     'Menu rapido ⋯: apri, prenota, messaggia, elimina',
     '<b>Azioni in blocco</b> (sospendi/attiva/elimina) registrate e <b>ripristinabili</b>',
     'Obiettivo peso e «quanto manca» a colpo d’occhio',
-    'Cartella clinica riservata ai professionisti sanitari (GDPR)'])}
-  ${S('🪙','Gettoni',[
-    'Si pagano alla prenotazione — niente crediti fantasma',
-    'Accrediti e rimborsi <b>solo dall’amministrazione</b>, con motivo obbligatorio',
-    '<b>Log completo</b>: per ogni gettone, chi e che cosa lo ha mosso',
-    'Filtri per periodo (oggi / 7 giorni / mese / sempre)',
-    'Vendita pacchetti con checkout e ricevuta',
-    'Monte gettoni non usati = debito, sempre visibile in Panoramica'])}
+    'Cartella clinica riservata ai professionisti sanitari (GDPR)',
+    '<b>Foto cliente</b> in anagrafica (riconoscimento in reception)',
+    'Stati <b>prospect / tour / non interessato</b> + promemoria «richiama tra una settimana»',
+    'Post-it di giornata sulla dashboard reception'])}
+  ${S('🪙','Gettoni, livelli & pacchetti',[
+    '<b>Listino ufficiale Active Wellness Club</b>: 14 servizi con costo reale in gettoni (anche mezzi gettoni)',
+    '<b>Scontistica a soglie</b>: il prezzo del gettone scende con gli acquisti cumulati (Start €12 → Elite €9,60) — il cliente vede «il tuo prezzo» col prezzo pieno sbarrato',
+    'Al passaggio di livello: notifica alla reception per consegnare l’omaggio',
+    '<b>Pacchetti mono-servizio</b> (10/20/30 lezioni, 12 mesi): scalano prima dei gettoni, barre di avanzamento e scadenza',
+    '<b>Iscrizione annuale</b> (nuova €50 / rinnovo €30 / plus €80) con scadenza e rinnovo in 1 click',
+    '<b>Rate</b>: alert automatico se il cliente usa più gettoni di quanto ha pagato + previsione incassi del mese',
+    '<b>Nucleo famiglia</b>: borsellino condiviso col capofamiglia, report consumi per membro',
+    '<b>Sotto-soglia solo reception</b>: il saldo negativo è una scelta esplicita della segreteria, mai del cliente',
+    '<b>🧮 Simulatore vendita</b>: frequenza desiderata → gettoni necessari, soglia, upsell e «ti costa come €X/mese»',
+    'Log completo per gettone, filtri per periodo, monte gettoni = debito in Panoramica'])}
+  ${S('🎫','Ingressi & badge (NFC)',[
+    'Tornello simulato: <b>verde se in regola</b>, rosso col motivo (iscrizione, certificato, rate, saldo)',
+    'Registro ingressi di giornata + certificati medici con scadenza e alert',
+    'Ingresso Open Area da ½ gettone scalato al passaggio del badge'])}
   ${S('🏋️','Staff & Servizi',[
     'Pagina staff con sessioni, saturazione, clienti seguiti e grafico ultime 6 settimane',
     'Filtri per ruolo, servizio e periodo · foto profilo per ogni membro',
     'Ruoli da elenco controllato (+ crea nuovo ruolo al volo)',
     'Servizi 1:1, <b>1:2 di coppia</b>, small group e open class',
-    'Classifica dei servizi più usati, con gettoni spesi'])}
+    'Classifica dei servizi più usati, con gettoni spesi',
+    '<b>Compensi</b>: ogni servizio ha il suo compenso € → stima settimanale per trainer e costo personale in Panoramica',
+    '<b>Libreria esercizi con video</b> nel form scheda: cerca, clicca, aggiunto (stile My Wellness)'])}
   ${S('☕','Bar / Shop',[
     'Cassa veloce: vista griglia o elenco, ricerca, ordinamento anche personalizzato',
     'Foto per ogni prodotto + gestione listino (crea/modifica/elimina)',
@@ -2822,20 +3127,111 @@ function buildRecap(){
     'Export CSV per contabile e commercialista',
     'Crediti aperti con solleciti'])}
   ${S('🔐','Sicurezza & Amministrazione',[
-    'Accesso con profili personali e password',
-    '<b>Revoca accessi in 1 click</b> (prova: c’è un utente disattivato)',
+    'Accesso con profili personali e password · <b>revoca in 1 click</b>',
+    '<b>Utente Soci</b>: andamento 2025 vs 2026 e previsioni, in sola lettura',
+    '<b>Utente Commercialista</b>: registro incassi + export CSV, senza poter toccare nulla',
     'Audit log: ogni azione su soldi, dati e accessi è tracciata',
+    '<b>Import clienti da TeamSystem</b> (CSV) con anteprima — provalo in Impostazioni → Sistema',
     'Backup e ripristino completi + Reset demo',
-    'Tema chiaro/scuro · funziona su PC, tablet e telefono'])}
+    'Tema chiaro/scuro · <b>mobile-first</b>: clienti e trainer hanno la barra di navigazione da telefono'])}
   </div>
   <div class="panel" style="margin-top:14px;border-left:3px solid var(--accent)"><h3>🗺️ In roadmap (dopo l’ok al progetto)</h3>
-    <ul class="feat"><li>Notifiche WhatsApp reali (promemoria, conferme, win-back)</li><li>Fatturazione elettronica SDI e corrispettivi</li><li>Pagamenti online reali (POS/Stripe)</li><li>Import clienti da TeamSystem / Technogym</li><li>Status & Gamification clienti (livelli, punti, vantaggi)</li></ul></div>`
+    <ul class="feat"><li>Notifiche WhatsApp reali (promemoria, conferme, win-back)</li><li>Fatturazione elettronica SDI e corrispettivi</li><li>Pagamenti online reali (POS/Stripe)</li><li>Badge NFC reali + tessera Apple/Google Wallet</li><li>Area <b>Fisio</b>: secondo brand con anagrafiche e calendari separati</li><li>Gamification clienti (punti, premi) ed e-commerce programmi</li></ul></div>`
+}
+/* ═══════════ ANDAMENTO SOCI — sostituisce l'Excel condiviso ═══════════ */
+function buildSoci(){
+  const rev26=REV6.reduce((t,r)=>t+r.v,0), rev25=REV5.reduce((t,r)=>t+r.v,0)
+  const sp26=SPESE6.reduce((t,r)=>t+r.v,0)
+  const growth=Math.round((REV6[4].v-REV5[4].v)/REV5[4].v*100)
+  const rateIn=CLIENTS.filter(c=>c.ratePlan&&c.ratePlan.ratePaid<c.ratePlan.rateTot).reduce((t,c)=>t+c.ratePlan.rateAmt*(c.ratePlan.rateTot-c.ratePlan.ratePaid),0)
+  const debt=CLIENTS.filter(c=>!c.famHead).reduce((t,c)=>t+Math.max(0,c.tok)*tokPrice(c),0)
+  C().innerHTML=`
+  <div class="sec-head"><h2>💼 Andamento — vista Soci</h2><span class="pill pill-muted">sola lettura · dati demo</span></div>
+  <div class="cards">
+    <div class="kpi"><div class="label">Fatturato 2026 (Feb–Lug)</div><div class="val">€${(rev26/1000).toFixed(0)}k</div><div class="sub">2025 stesso periodo: €${(rev25/1000).toFixed(0)}k</div></div>
+    <div class="kpi"><div class="label">Crescita giugno su giugno</div><div class="val" style="color:${growth>=0?'var(--ok)':'var(--danger)'}">${growth>=0?'+':''}${growth}%</div></div>
+    <div class="kpi"><div class="label">Spese 2026</div><div class="val">€${(sp26/1000).toFixed(0)}k</div></div>
+    <div class="kpi"><div class="label">Margine 2026</div><div class="val" style="color:var(--accent)">€${((rev26-sp26)/1000).toFixed(0)}k</div></div>
+    <div class="kpi"><div class="label">In previsione</div><div class="val">€${(rateIn+debt).toFixed(0)}</div><div class="sub">rate residue €${rateIn.toFixed(0)} + monte gettoni €${debt.toFixed(0)}</div></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><h3>📈 Fatturato 2026</h3><canvas id="sc26" style="height:140px"></canvas></div>
+    <div class="panel"><h3>📉 Fatturato 2025 (stesso periodo)</h3><canvas id="sc25" style="height:140px"></canvas></div>
+  </div>
+  <div class="panel" style="margin-top:14px"><h3>Trend</h3>
+    <div style="font-size:13px;color:var(--ink2)">Siamo <b style="color:var(--ok)">in crescita</b>: +${growth}% sul giugno 2025. Ogni socio vede questi numeri in tempo reale, senza chiedere estrazioni: questo pannello sostituisce l'Excel condiviso.</div></div>`
+  requestAnimationFrame(()=>{drawChart('sc26',REV6.map(r=>r.v),'#8FFF00',REV6.map(r=>r.m),140)
+    drawChart('sc25',REV5.map(r=>r.v),'#6ee6f5',REV5.map(r=>r.m),140)})
+}
+/* ═══════════ INGRESSI — badge/tornello (demo controllo accessi NFC) ═══════════ */
+const RNOTES=[
+ {id:'rn1',txt:'Idraulico passa alle 15 — ritira contanti',done:false},
+ {id:'rn2',txt:'Chiamare fornitore acqua (finita la frizzante)',done:false},
+]
+const GATELOG=[
+ {t:'08:02',name:'Paolo Neri',ok:true},
+ {t:'08:14',name:'Matteo Villa',ok:true},
+ {t:'08:31',name:'Riccardo Blu',ok:false,why:'Iscrizione scaduta (2026-05-01) · certificato scaduto'},
+ {t:'08:47',name:'Elena Costa',ok:true},
+]
+function gateCheck(c){
+  const w=walletOf(c),why=[]
+  if(c.status!=='attivo')why.push('stato: '+c.status)
+  const m=w.mship;if(!m)why.push('nessuna iscrizione');else if(new Date(m.until)<new Date())why.push('iscrizione scaduta ('+m.until+')')
+  const ce=certState(c);if(ce.cls==='pill-danger')why.push('certificato medico '+ce.k)
+  const rs=rateStatus(c);if(rs&&rs.over>0)why.push('rate: in over di '+rs.over+'🪙')
+  if(w.tok<0)why.push('saldo gettoni negativo ('+w.tok+')')
+  return {ok:!why.length,why}
+}
+function addRNote(){
+  const t=prompt('Nota per la reception:');if(!t)return
+  RNOTES.unshift({id:'rn'+Date.now(),txt:t,done:false});saveState();buildRecOggi()
+}
+function buildIngressi(){
+  C().innerHTML=`
+  <div class="sec-head"><h2>🎫 Ingressi — badge</h2><span class="pill pill-muted">demo lettore NFC</span></div>
+  <div class="panel" style="max-width:560px;margin-bottom:14px">
+    <div style="font-size:12.5px;color:var(--ink2);margin-bottom:10px">Simula la strisciata del badge cercando il cliente. In produzione: badge NFC o tessera Apple/Google Wallet sul lettore → il tornello apre <b>solo se è tutto in regola</b>.</div>
+    <div class="combo"><input class="combo-in" id="gateQ" placeholder="🔍 Badge di… (nome cliente)" autocomplete="off" oninput="gateFilter()" onfocus="gateFilter()">
+      <div class="combo-list" id="gateQ-l" style="display:none"></div></div>
+    <div id="gateResult" style="margin-top:12px"></div></div>
+  <div class="sub-head">Registro ingressi di oggi</div>
+  <div class="tbl-wrap"><div class="tbl-scroll"><table><tbody>
+    ${GATELOG.map(g=>`<tr><td style="width:60px;color:var(--ink3);font-size:12px">${g.t}</td>
+      <td><b>${esc(g.name)}</b></td>
+      <td>${g.ok?'<span class="pill pill-ok">✓ ingresso</span>':`<span class="pill pill-danger">✕ negato</span> <span style="font-size:11.5px;color:var(--ink3)">${esc(g.why||'')}</span>`}</td></tr>`).join('')}
+  </tbody></table></div></div>`
+}
+function gateFilter(){
+  const q=(document.getElementById('gateQ').value||'').toLowerCase().trim()
+  const list=CLIENTS.filter(c=>!q||c.name.toLowerCase().includes(q)).slice(0,6)
+  const el=document.getElementById('gateQ-l');el.style.display='block'
+  el.innerHTML=list.map(c=>`<div class="combo-it" onmousedown="gateSwipe('${c.id}')"><span>${cAva(c,20)} ${esc(c.name)}</span></div>`).join('')||'<div class="combo-it" style="color:var(--ink3)">Nessun cliente</div>'
+}
+function gateSwipe(cid){
+  const c=CLIENTS.find(x=>x.id===cid)
+  document.getElementById('gateQ-l').style.display='none'
+  document.getElementById('gateQ').value=c.name
+  const r=gateCheck(c)
+  const now=new Date();const t=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')
+  GATELOG.unshift({t,name:c.name,ok:r.ok,why:r.why.join(' · ')})
+  if(!r.ok)notify(['reception','admin'],'🚫','Ingresso negato',`${c.name}: ${r.why[0]}`)
+  audit(r.ok?`INGRESSO: ${c.name} ✓`:`INGRESSO NEGATO: ${c.name} — ${r.why.join(' · ')}`)
+  document.getElementById('gateResult').innerHTML=r.ok
+    ?`<div style="background:rgba(62,207,142,.12);border:1px solid var(--ok);border-radius:12px;padding:16px;text-align:center">
+       <div style="font-size:34px">🟢</div><b style="font-size:16px">${esc(c.name)} — APERTO</b>
+       <div style="font-size:12px;color:var(--ink3);margin-top:4px">tutto in regola · ingresso registrato</div></div>`
+    :`<div style="background:rgba(232,64,64,.12);border:1px solid var(--danger);border-radius:12px;padding:16px;text-align:center">
+       <div style="font-size:34px">🔴</div><b style="font-size:16px">${esc(c.name)} — NON APRE</b>
+       <div style="font-size:12.5px;color:var(--danger);margin-top:6px">${r.why.map(esc).join('<br>')}</div>
+       <div style="font-size:11px;color:var(--ink3);margin-top:6px">la reception vede subito il motivo e lo risolve</div></div>`
+  saveState()
 }
 /* ═══════════ PANORAMICA (Super Admin) — KPI derivati dai dati ═══════════ */
 function buildPanoramica(){
   const rev=REV6[REV6.length-1].v, prevRev=REV6[REV6.length-2].v
   const wallet=CLIENTS.reduce((s,c)=>s+c.tok,0)
-  const tokVal=TOK_PACKS[1].price/TOK_PACKS[1].qty
+  const debt=CLIENTS.filter(c=>!c.famHead).reduce((t,c)=>t+Math.max(0,c.tok)*tokPrice(c),0)
   const att=PAYMENTS.filter(p=>p.status==='attesa').reduce((s,p)=>s+p.amount,0)
   /* occupazione reale: ore prenotate / disponibili */
   const occ=STAFF.map(s=>{const hrs=SESSIONS.filter(e=>e.staff===s.id).reduce((t,e)=>t+e.dur,0)
@@ -2854,7 +3250,8 @@ function buildPanoramica(){
     <div class="kpi"><div class="label">Clienti attivi</div><div class="val">${CLIENT_TOTAL}</div><div class="sub">${risk.length} a rischio nel campione</div></div>
     <div class="kpi"><div class="label">Fatturato (giugno)</div><div class="val">€${(prevRev/1000).toFixed(1)}k</div><div class="sub">luglio in corso: €${(rev/1000).toFixed(1)}k</div></div>
     <div class="kpi"><div class="label">Crediti aperti</div><div class="val" style="color:var(--warn)">€${att.toFixed(0)}</div><div class="sub">incassi ancora da riscuotere</div></div>
-    <div class="kpi"><div class="label">Monte gettoni (debito)</div><div class="val">€${(wallet*tokVal).toFixed(0)}</div><div class="sub">${wallet} gettoni non spesi</div></div>
+    <div class="kpi"><div class="label">Monte gettoni (debito)</div><div class="val">€${debt.toFixed(0)}</div><div class="sub">${wallet} gettoni non spesi</div></div>
+    <div class="kpi"><div class="label">Costo personale (sett.)</div><div class="val">€${STAFF.reduce((t,st)=>t+SESSIONS.filter(e=>e.staff===st.id).reduce((x,e)=>x+((svcOf(e.svc)||{}).comp||0),0),0)}</div><div class="sub">da tariffe per prestazione</div></div>
     <div class="kpi"><div class="label">Staff</div><div class="val">${STAFF.length}</div><div class="sub">saturazione media ${Math.round(occ.reduce((s,o)=>s+o.pct,0)/occ.length)}%</div></div>
   </div>
   <div class="grid2">
@@ -2892,6 +3289,16 @@ function buildRecOggi(){
   const inc=todayPays.reduce((s,p)=>s+p.amount,0)
   C().innerHTML=`
   <div class="sec-head"><h2>Oggi — Reception</h2><span style="font-size:13px;color:var(--ink3)">${dayLbl(TODAY_DOW)}</span></div>
+  <div class="grid2" style="margin-bottom:14px">
+    <div class="panel"><h3>📌 Post-it di giornata <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="addRNote()">+ Nota</button></h3>
+      ${RNOTES.filter(n=>!n.done).map(n=>`<div class="todo-row" onclick="const x=RNOTES.find(y=>y.id==='${n.id}');x.done=true;saveState();buildRecOggi()"><div class="cbx"></div><div class="tx" style="font-weight:500;font-size:13px">${esc(n.txt)}</div></div>`).join('')||'<div style="color:var(--ink3);font-size:12.5px">Nessuna nota — giornata pulita 🎉</div>'}</div>
+    <div class="panel"><h3>📞 Da ricontattare</h3>
+      ${CLIENTS.filter(c=>c.followUp&&c.followUp.date&&new Date(c.followUp.date)<=new Date()).map(c=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;align-items:center">
+        <div><b style="cursor:pointer" onclick="openClient('${c.id}')">${esc(c.name)}</b> <span class="pill pill-accent" style="font-size:9px">${c.status}</span>
+          <div style="color:var(--ink3);font-size:11.5px">${esc((c.followUp&&c.followUp.note)||'')} · entro ${c.followUp.date}</div></div>
+        <button class="btn btn-outline btn-sm" onclick="const x=CLIENTS.find(y=>y.id==='${c.id}');x.followUp=null;audit('Ricontattato '+x.name);toast('Segnato come fatto');saveState();buildRecOggi()">✓</button></div>`).join('')
+      ||'<div style="color:var(--ink3);font-size:12.5px">Nessun richiamo in scadenza.</div>'}</div>
+  </div>
   <div class="cards">
     <div class="kpi"><div class="label">Sessioni oggi</div><div class="val">${oggi.length}</div></div>
     <div class="kpi"><div class="label">Da gestire (check-in)</div><div class="val" style="color:var(--warn)">${daConf.length}</div></div>
@@ -3010,7 +3417,8 @@ function buildImpostazioni(){
         <div class="switch ${a.on?'on':''}" onclick="const x=AUTOM.find(z=>z.id==='${a.id}');x.on=!x.on;this.classList.toggle('on');audit('Automazione ${a.t}: '+(x.on?'ON':'OFF'));toast('${a.t}: '+(x.on?'attivata':'disattivata'));saveState()"></div></div>`).join('')}
     </div>`
   }else if(setTab==='utenti'){
-    B.innerHTML=`<div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
+    B.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn btn-accent btn-sm" onclick="openUserForm()">+ Nuovo utente</button></div>
+    <div class="tbl-wrap"><div class="tbl-scroll"><table><thead><tr>
       ${ths('usr','name','Utente','buildImpostazioni')}${ths('usr','email','Email','buildImpostazioni')}${ths('usr','role','Ruolo','buildImpostazioni')}<th>Ultimo accesso</th>${ths('usr','active','Stato','buildImpostazioni')}<th></th></tr></thead><tbody>
       ${tsorted('usr',USERS).map(u=>`<tr style="${u.active?'':'opacity:.5'}">
         <td>${u.ava} <b>${esc(u.name)}</b>${u.sanitario?' <span class="pill pill-accent" style="font-size:9px">SANITARIO</span>':''}</td>
@@ -3041,7 +3449,11 @@ function buildImpostazioni(){
       ${AUDIT.slice(0,30).map(a=>`<div class="audit-row"><span class="at">${a.t}</span><span class="au">${esc(a.u)}</span><span>${esc(a.a)}</span></div>`).join('')}
     </div>`
   }else if(setTab==='sistema'){
-    B.innerHTML=`<div class="grid2">
+    B.innerHTML=`<div class="panel" style="max-width:560px;margin-bottom:14px;border-left:3px solid var(--accent)">
+      <h3>⇪ Migrazione da TeamSystem / My Wellness</h3>
+      <div style="font-size:12.5px;color:var(--ink2);margin-bottom:10px">Esporta i clienti in CSV dal gestionale attuale (colonne: <span style="font-family:monospace">nome, email, telefono, gettoni</span>) e importali qui. Funziona davvero: prova con un file.</div>
+      <input type="file" id="tsFile" accept=".csv,text/csv" class="combo-in" onchange="tsImportPreview(event)">
+      <div id="tsPrev" style="margin-top:10px;font-size:12.5px"></div></div>`+`<div class="grid2">
       <div class="panel"><h3>💾 Backup & ripristino</h3>
         <div style="font-size:12.5px;color:var(--ink2);margin-bottom:12px">Scarica lo stato completo (clienti, sessioni, pagamenti, gettoni, audit) in JSON. Il ripristino ricarica un backup.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -3073,11 +3485,70 @@ function changePwd(){
   audit('Password cambiata');toast('Password aggiornata (demo: al prossimo login usa ancora quella demo)')
   err.textContent=''
 }
+function openUserForm(){
+  const roleOpts=Object.entries(ROLE_LBL).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')
+  const stOpts=STAFF.map(st=>`<option value="${st.id}">${esc(st.name)}</option>`).join('')
+  showModal(`<h2>+ Nuovo utente</h2>
+    <div class="form-row"><label>Nome e Cognome *</label><input id="nu-n" placeholder="Mario Rossi"></div>
+    <div class="form-row"><label>Email (per l’accesso) *</label><input type="email" id="nu-e" placeholder="nome@moveowellness.it"></div>
+    <div class="form-row"><label>Ruolo</label><select id="nu-r" onchange="document.getElementById('nu-st-row').style.display=this.value==='trainer'?'block':'none';document.getElementById('nu-san-row').style.display=this.value==='trainer'?'flex':'none'">${roleOpts}</select></div>
+    <div class="form-row" id="nu-st-row" style="display:none"><label>Collega a membro dello staff (per calendario e clienti)</label>
+      <select id="nu-st"><option value="">— nessuno / lo creo dopo —</option>${stOpts}</select></div>
+    <div class="set-row" id="nu-san-row" style="display:none;border:none;padding:4px 0"><div class="sl">Accesso cartelle cliniche<small>solo professionisti sanitari (fisioterapista, osteopata…)</small></div>
+      <div class="switch" id="nu-san" onclick="this.classList.toggle('on')"></div></div>
+    <div id="nu-err" style="color:var(--danger);font-size:12px;min-height:14px"></div>
+    <div style="font-size:11.5px;color:var(--ink3);margin-bottom:8px">Password iniziale (demo): <b>${DEMO_PWD}</b> — l’utente potrà cambiarla dal suo profilo. In produzione: invito via email con link di attivazione.</div>
+    <div class="modal-foot"><button class="btn btn-outline" onclick="closeModal()">Annulla</button>
+      <button class="btn btn-accent" onclick="saveNewUser()">Crea utente</button></div>`)
+}
+function saveNewUser(){
+  const g=x=>document.getElementById(x)
+  const name=g('nu-n').value.trim(), email=g('nu-e').value.trim().toLowerCase(), role=g('nu-r').value
+  const err=g('nu-err')
+  if(!name||!email){err.textContent='Nome ed email sono obbligatori.';return}
+  if(!/.+@.+\..+/.test(email)){err.textContent='Email non valida.';return}
+  if(USERS.some(u=>u.email.toLowerCase()===email)){err.textContent='Esiste già un utente con questa email.';return}
+  const u={id:'u'+Date.now(),name,email,ava:'👤',role,active:true,last:'mai'}
+  if(role==='trainer'){const st=g('nu-st').value;if(st)u.staffId=st
+    if(g('nu-san').classList.contains('on'))u.sanitario=true}
+  USERS.push(u)
+  audit(`CREATO utente ${name} (${email}, ${ROLE_LBL[role]}${u.sanitario?', sanitario':''}) da ${CURRENT_USER.name}`)
+  notify(['admin'],'👤','Nuovo utente',`${name} — ${ROLE_LBL[role]}`)
+  toast(`Utente creato — può accedere con «${DEMO_PWD}»`)
+  closeModal();saveState();buildImpostazioni()
+}
 function toggleUser(id){
   const u=USERS.find(x=>x.id===id);u.active=!u.active
   audit(`${u.active?'Riattivato':'DISATTIVATO'} utente ${u.email}`)
   toast(u.active?`${u.name} riattivato`:`${u.name} disattivato — accesso revocato`,u.active?'ok':'warn')
   buildImpostazioni();saveState()
+}
+let _tsRows=[]
+function tsImportPreview(e){
+  const f=e.target.files[0];if(!f)return
+  const r=new FileReader()
+  r.onload=()=>{
+    const lines=r.result.split(/\r?\n/).filter(x=>x.trim())
+    const start=/nome|name/i.test(lines[0])?1:0
+    _tsRows=lines.slice(start).map(l=>{const p=l.split(/[;,\t]/).map(x=>x.trim().replace(/^"|"$/g,''))
+      return {name:p[0]||'',email:p[1]||'',tel:p[2]||'',tok:+(p[3]||0)||0}}).filter(x=>x.name)
+    document.getElementById('tsPrev').innerHTML=_tsRows.length
+      ?`<b>${_tsRows.length} clienti pronti</b>: ${_tsRows.slice(0,4).map(x=>esc(x.name)).join(', ')}${_tsRows.length>4?'…':''}
+        <div style="margin-top:8px"><button class="btn btn-accent btn-sm" onclick="tsImportGo()">Importa ${_tsRows.length} clienti</button></div>`
+      :'<span style="color:var(--danger)">Nessuna riga valida nel file.</span>'
+  }
+  r.readAsText(f)
+}
+function tsImportGo(){
+  const added=[]
+  _tsRows.forEach(rw=>{
+    if(CLIENTS.some(c=>c.name.toLowerCase()===rw.name.toLowerCase()))return
+    const nid='c'+Date.now()+Math.floor(Math.random()*999)
+    CLIENTS.push({id:nid,name:rw.name,email:rw.email,tel:rw.tel,dob:'',cf:'',obj:'',status:'attivo',tok:rw.tok,cumTok:rw.tok,trainer:'marco',since:todayISO(),notes:'Importato da TeamSystem',streak:0,workouts:0,lastCheck:0,weight:[],fat_pct:[],muscle_kg:[],water_pct:[],bmi:[],metage:[]})
+    added.push(rw.name)})
+  BULK_LOG.unshift({id:'bl'+Date.now(),when:nowStr(),by:CURRENT_USER.name,action:'Import da TeamSystem',n:added.length,items:added,kind:'delete',snap:[]})
+  audit(`IMPORT TeamSystem: ${added.length} clienti (${added.slice(0,5).join(', ')}${added.length>5?'…':''})`)
+  toast(added.length+' clienti importati ✓');saveState();buildImpostazioni()
 }
 function downloadBackup(){
   const data=JSON.stringify({exported:new Date().toISOString(),CENTER,USERS,CLIENTS,STAFF,SVCS,SESSIONS,BOOKINGS,LEDGER,PAYMENTS,AUDIT,CLINICAL,WORKOUTS,NUTRI},null,1)
@@ -3103,7 +3574,7 @@ function restoreBackup(inp){
 /* ═══════════ MODAL + VIEWS + INIT ═══════════ */
 function showModal(html){document.getElementById('modalBox').innerHTML=html;document.getElementById('overlay').classList.add('open')}
 function closeModal(e){if(e&&e.target&&e.target!==document.getElementById('overlay'))return;document.getElementById('overlay').classList.remove('open')}
-const VIEWS={cal:buildCal,mycal:buildMyCal,clienti:buildClienti,myclienti:buildMyClienti,staff:buildStaff,servizi:buildServizi,misurazioni:buildMis,gettoni:buildGettoni,shop:buildShop,pagamenti:buildPagamenti,messaggi:buildMsgs,equipment:buildEquip,gcal:buildGcal,booking:openBookingModal,mymis:buildMyMis,mytok:buildMyTok,dash:buildDash,mybookings:buildMyBookings,nutrition:buildNutrition,workout:buildWorkout,panoramica:buildPanoramica,recap:buildRecap,recoggi:buildRecOggi,impostazioni:buildImpostazioni}
+const VIEWS={cal:buildCal,mycal:buildMyCal,clienti:buildClienti,myclienti:buildMyClienti,staff:buildStaff,servizi:buildServizi,misurazioni:buildMis,gettoni:buildGettoni,shop:buildShop,pagamenti:buildPagamenti,messaggi:buildMsgs,equipment:buildEquip,gcal:buildGcal,booking:openBookingModal,mymis:buildMyMis,mytok:buildMyTok,dash:buildDash,mybookings:buildMyBookings,nutrition:buildNutrition,workout:buildWorkout,panoramica:buildPanoramica,recap:buildRecap,recoggi:buildRecOggi,ingressi:buildIngressi,soci:buildSoci,impostazioni:buildImpostazioni}
 initGate()
 applyTheme()
 </script>
